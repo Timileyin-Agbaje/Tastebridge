@@ -1,0 +1,44 @@
+{
+  "category": "restaurants",
+  "members": [
+    {
+      "name": "Maya",
+      "likes": [
+        "Radiohead",
+        "The Grand Budapest Hotel",
+        "Patagonia"
+      ],
+      "entityIds": [
+        "70CAE5BF-2F4C-445C-A3E5-4EDACFC3591C",
+        "DF788007-B5EA-4F29-872B-96BCB8EEC42F",
+        "DB4CE34E-3A63-4947-946F-9D52502C5762"
+      ]
+    },
+    {
+      "name": "Dre",
+      "likes": [
+        "Drake",
+        "Fast & Furious",
+        "Nike"
+      ],
+      "entityIds": [
+        "088C8322-5E1F-4D2E-99D3-5133AD16BABE",
+        "F01AC034-179A-47F3-8ADF-7A4D77559DCF",
+        "C70CE2B8-0AD1-4150-BF18-5A6347F2E860"
+      ]
+    },
+    {
+      "name": "June",
+      "likes": [
+        "Taylor Swift",
+        "Pride and Prejudice",
+        "Gilmore Girls"
+      ],
+      "entityIds": [
+        "3C9EEC3A-F4FE-48A4-B89F-97375F292448",
+        "FB39AE3C-D31A-4677-8E07-3D0A42EB67B2",
+        "4C60FF74-A236-4488-8FB3-2FE43D1C79FB"
+      ]
+    }
+  ]
+}
