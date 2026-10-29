@@ -147,12 +147,29 @@ async function scoreForMember(member, candidateIds) {
   return affinityById;
 }
 
-function toPick(place, members, memberAffinities) {
-  const scores = members.map((member, i) => ({
-    member: member.name,
-    affinity: memberAffinities[i].get(place.entity_id),
-  }));
-  const affinities = scores.map((score) => score.affinity);
+// Each member's rank for each place among the places scored together (1 = their favourite).
+// People's raw affinities sit on different scales (one person's 0.88 is their worst, another's
+// 0.84 their best), so fairness is judged on where a place falls in each person's own ranking.
+function rankByMember(placeIds, memberAffinities) {
+  return memberAffinities.map((affinities) => {
+    const ordered = [...placeIds].sort((a, b) => affinities.get(b) - affinities.get(a));
+    return new Map(ordered.map((id, i) => [id, i + 1]));
+  });
+}
+
+function toPick(place, members, memberAffinities, memberRanks) {
+  const total = memberRanks[0].size;
+  const scores = members.map((member, i) => {
+    const rank = memberRanks[i].get(place.entity_id);
+    return {
+      member: member.name,
+      affinity: memberAffinities[i].get(place.entity_id),
+      rank,
+      of: total,
+      fit: total > 1 ? 1 - (rank - 1) / (total - 1) : 1, // 1 = their favourite here, 0 = their least favourite
+    };
+  });
+  const fits = scores.map((score) => score.fit);
   const props = place.properties ?? {};
   return {
     id: place.entity_id,
@@ -168,26 +185,30 @@ function toPick(place, members, memberAffinities) {
     // Insights tags use `id`; search results (see toEntity) use `tag_id`.
     tags: (place.tags ?? []).map((tag) => ({ id: tag.id, name: tag.name })),
     scores,
-    lowestAffinity: Math.min(...affinities),
-    averageAffinity: affinities.reduce((sum, a) => sum + a, 0) / affinities.length,
+    lowestFit: Math.min(...fits),
+    averageFit: fits.reduce((sum, fit) => sum + fit, 0) / fits.length,
   };
 }
 
-// Least misery: the best place is the one whose least-happy member is happiest.
+// Least misery: the best place is the one whose least-happy member ranks it highest.
 function byLeastMisery(a, b) {
-  return b.lowestAffinity - a.lowestAffinity || b.averageAffinity - a.averageAffinity;
+  return b.lowestFit - a.lowestFit || b.averageFit - a.averageFit;
 }
 
-// Scores every place for every member, dropping places Qloo couldn't score for someone.
+// Scores and ranks every place for every member, dropping places Qloo couldn't score for someone.
 async function scoreList(places, members) {
   if (places.length === 0) return [];
   const placeIds = places.map((place) => place.entity_id);
   const memberAffinities = await Promise.all(
     members.map((member) => scoreForMember(member, placeIds)),
   );
-  return places
-    .filter((place) => memberAffinities.every((scores) => scores.has(place.entity_id)))
-    .map((place) => toPick(place, members, memberAffinities));
+  const scorable = places.filter((place) => memberAffinities.every((scores) => scores.has(place.entity_id)));
+  const memberRanks = rankByMember(scorable.map((place) => place.entity_id), memberAffinities);
+  return scorable.map((place) => toPick(place, members, memberAffinities, memberRanks));
+}
+
+function uniqueById(places) {
+  return [...new Map(places.map((place) => [place.entity_id, place])).values()];
 }
 
 async function recommend(members, category) {
@@ -196,18 +217,30 @@ async function recommend(members, category) {
   return { candidateCount: candidates.length, picks: scored.sort(byLeastMisery).slice(0, PICK_COUNT) };
 }
 
-// The proof: what the group would get from the organizer's taste alone, or from popularity alone.
-// Both lists keep Qloo's own order and are scored per member exactly like the TasteBridge picks.
-async function compare(members, category) {
-  const [organizerPlaces, popularPlaces] = await Promise.all([
+// The proof: who gets left out by TasteBridge's picks, by the organizer's taste alone, and by
+// popularity alone. Every place any of them would show is pooled and ranked per person; a place
+// leaves someone out when it's in the bottom third of that pool for them.
+async function compare(members, category, pickIds) {
+  const [candidates, organizerPlaces, popularPlaces] = await Promise.all([
+    findCandidates(members.flatMap((m) => m.entityIds), category),
     findCandidates(members[0].entityIds, category, PICK_COUNT),
     findCandidates([], category, PICK_COUNT),
   ]);
-  const [organizer, popular] = await Promise.all([
-    scoreList(organizerPlaces, members),
-    scoreList(popularPlaces, members),
-  ]);
-  return { organizer, popular };
+  const pool = await scoreList(uniqueById([...candidates, ...organizerPlaces, ...popularPlaces]), members);
+  const byId = new Map(pool.map((place) => [place.id, place]));
+  const bottomThirdFrom = pool.length - Math.floor(pool.length / 3) + 1; // e.g. ranks 19–27 of 27
+
+  const summarize = (ids) => ids.map((id) => byId.get(id)).filter(Boolean).map((place) => ({
+    id: place.id,
+    name: place.name,
+    leftOut: place.scores.filter((score) => score.rank >= bottomThirdFrom).map((score) => score.member),
+  }));
+  return {
+    poolSize: pool.length,
+    tasteBridge: summarize(pickIds),
+    organizer: summarize(organizerPlaces.map((place) => place.entity_id)),
+    popular: summarize(popularPlaces.map((place) => place.entity_id)),
+  };
 }
 
 // Returns an error message for the user, or null if the request is usable.
@@ -276,10 +309,14 @@ app.post('/api/recommend', async (req, res) => {
 app.post('/api/compare', async (req, res) => {
   const error = validateRecommendRequest(req.body);
   if (error) return res.status(400).json({ error });
+  const { pickIds } = req.body;
+  const validPicks = Array.isArray(pickIds) && pickIds.length > 0 && pickIds.length <= PICK_COUNT
+    && pickIds.every((id) => typeof id === 'string' && id);
+  if (!validPicks) return res.status(400).json({ error: 'Find your shortlist first, then compare it.' });
 
   const members = req.body.members.map((m) => ({ name: m.name.trim(), entityIds: m.entityIds }));
   try {
-    res.json(await compare(members, req.body.category));
+    res.json(await compare(members, req.body.category, pickIds));
   } catch (err) {
     console.error(err.message);
     res.status(502).json({ error: "We couldn't load the comparison. Try again in a moment." });

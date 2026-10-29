@@ -357,18 +357,22 @@
     }
     .proof-panel[hidden] { display: none; }
     .proof-intro { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
-    .strategies { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-    .strategy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
-    .strategy-name { font-weight: 600; font-size: 15px; min-width: 0; }
-    .strategy-pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; }
-    .strategy-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-    .strategy .bar { margin: 4px 0 2px; }
-    .strategy:not(.ours) .bar-fill { background: var(--muted); }
-    .strategy.ours .strategy-pct { color: var(--accent); }
+    .strategies { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 18px; }
+    .strategy { display: grid; gap: 2px; min-width: 0; }
+    .strategy-name { font-weight: 600; font-size: 15px; }
+    .strategy-stat { font-weight: 700; font-size: 17px; }
+    .strategy.ours .strategy-stat { color: var(--accent); }
+    .strategy-note { color: var(--muted); font-size: 13px; }
+    .strategy-places { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+    .strategy-places li { display: flex; flex-wrap: wrap; gap: 0 8px; min-width: 0; }
+    .place-name { overflow-wrap: anywhere; min-width: 0; }
+    .left-out { color: var(--danger); }
+    .fits-all { color: var(--good); }
     .verdict {
-      margin: 16px 0 0; padding: 12px 14px; border-radius: 12px;
-      background: var(--accent-soft); font-size: 14px; font-weight: 500;
+      margin: 0; padding: 12px 14px; border-radius: 12px;
+      background: var(--accent-soft); font-size: 15px; font-weight: 600;
     }
+    .proof-method { margin: 16px 0 0; color: var(--muted); font-size: 13px; }
     .proof-status { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 10px; }
     .proof-status .step-dot {
       margin: 0; border-color: var(--accent); border-right-color: transparent;
@@ -447,7 +451,7 @@
           <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
         <div class="proof-panel" id="proof-panel" hidden>
-          <p class="proof-intro">Same people, same scoring. Only the way the places are chosen changes. Each number is the least-happy person’s average match across that list.</p>
+          <p class="proof-intro">Same people, same Qloo scores. Only the way the places are chosen changes.</p>
           <div id="proof-body" aria-live="polite"></div>
         </div>
       </div>
@@ -460,15 +464,15 @@
     const MAX_MEMBERS = 5;
     const MAX_LIKES = 4;
     const MAX_SHARED_TAGS = 3;
-    // Qloo affinities cluster between ~0.75 and 0.95, so a 0–1 bar would make everyone look the same.
-    const BAR_FLOOR = 0.6;
 
+    // Three clearly different worlds. Measured: going by Sam's taste alone, or by popularity, leaves
+    // someone out at every restaurant; TasteBridge's shortlist leaves nobody out.
     const DEMO_GROUP = {
       category: 'restaurants',
       members: [
-        { name: 'Maya', likes: ['Radiohead', 'The Grand Budapest Hotel', 'Patagonia'] },
-        { name: 'Dre', likes: ['Drake', 'Fast & Furious', 'Nike'] },
-        { name: 'June', likes: ['Taylor Swift', 'Pride and Prejudice', 'Gilmore Girls'] },
+        { name: 'Sam', likes: ['Anthony Bourdain', 'Chef\'s Table', 'The Bear'] },
+        { name: 'Nia', likes: ['SZA', 'Insecure', 'Telfar'] },
+        { name: 'Owen', likes: ['Ted Lasso', 'FIFA', 'Coldplay'] },
       ],
     };
 
@@ -939,30 +943,32 @@
         .slice(0, MAX_SHARED_TAGS);
     }
 
-    function percent(affinity) {
-      return `${Math.round(affinity * 100)}%`;
+    // "#4 of 20": where this place falls in that person's own ranking of the places considered.
+    function rankLabel(score) {
+      return `#${score.rank} of ${score.of}`;
     }
 
-    function barValue(affinity) {
-      return Math.min(1, Math.max(0.04, (affinity - BAR_FLOOR) / (1 - BAR_FLOOR)));
+    // Bar length follows the person's own ranking (their favourite fills it), with a sliver for their last.
+    function barValue(fit) {
+      return Math.max(0.04, fit);
     }
 
-    // Under this spread nobody is meaningfully worse off, so there's no "lowest" to call out.
-    const EVEN_SPREAD = 0.03;
+    // Everyone within this many places of each other in their own rankings counts as an even match.
+    const EVEN_RANK_SPREAD = 3;
 
     function isEvenMatch(pick) {
-      const affinities = pick.scores.map((s) => s.affinity);
-      return Math.max(...affinities) - Math.min(...affinities) < EVEN_SPREAD;
+      const ranks = pick.scores.map((s) => s.rank);
+      return Math.max(...ranks) - Math.min(...ranks) <= EVEN_RANK_SPREAD;
     }
 
     function whyLine(pick) {
-      if (isEvenMatch(pick)) return `An even match: everyone lands within a few points of each other.`;
-      const lowest = pick.scores.reduce((low, s) => (s.affinity < low.affinity ? s : low));
-      return `Even ${lowest.member}, the hardest to please here, comes in at ${percent(lowest.affinity)}.`;
+      if (isEvenMatch(pick)) return 'An even match: everyone ranks it within a few places of each other.';
+      const lowest = pick.scores.reduce((low, s) => (s.fit < low.fit ? s : low));
+      return `Even ${lowest.member}, the hardest to please here, ranks it ${rankLabel(lowest)}.`;
     }
 
     function renderPick(pick, index) {
-      const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.affinity));
+      const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.fit));
       const vibes = placeVibes(pick);
       const memberMatches = lastRun.likedEntities.map((likedEntities) => likeMatches(likedEntities, vibes));
       const common = commonGround(memberMatches, vibes);
@@ -971,10 +977,10 @@
         return el('li', { className: 'score-row' }, [
           el('span', { className: 'score-name' }, [
             score.member,
-            score.affinity === lowest ? el('em', {}, 'lowest') : null,
+            score.fit === lowest ? el('em', {}, 'lowest') : null,
           ]),
-          el('span', { className: 'score-pct' }, percent(score.affinity)),
-          el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.affinity)}` })),
+          el('span', { className: 'score-pct' }, rankLabel(score)),
+          el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.fit)}` })),
           reason ? el('span', { className: 'shared' }, reason) : null,
         ]);
       });
@@ -1133,55 +1139,57 @@
       proofPanel.hidden = !open;
     }
 
-    // The least-happy person's average match across a list: the number TasteBridge optimises for.
-    function worstOff(picks) {
-      if (picks.length === 0) return null;
-      const averages = picks[0].scores.map((score, i) => ({
-        member: score.member,
-        affinity: picks.reduce((sum, pick) => sum + pick.scores[i].affinity, 0) / picks.length,
-      }));
-      return averages.reduce((low, a) => (a.affinity < low.affinity ? a : low));
+    const nameList = new Intl.ListFormat('en', { type: 'conjunction' }); // "Sam, Nia, and Owen"
+
+    function leftOutCount(list) {
+      return list.filter((place) => place.leftOut.length > 0).length;
     }
 
-    function renderStrategy({ name, note, picks, ours }) {
-      const worst = worstOff(picks);
+    // "Leaves Nia out at 2" / "Leaves nobody out"
+    function leftOutSummary(list) {
+      const count = leftOutCount(list);
+      if (list.length === 0) return 'Qloo found no places for this list';
+      if (count === 0) return 'Leaves nobody out';
+      return `Leaves someone out at ${count} of ${list.length} ${plural(list.length, 'place', 'places')}`;
+    }
+
+    function renderStrategy({ name, note, list, ours }) {
       return el('li', { className: `strategy${ours ? ' ours' : ''}` }, [
         el('span', { className: 'strategy-name' }, name),
-        el('span', { className: 'strategy-pct' }, worst ? percent(worst.affinity) : '—'),
-        el('div', { className: 'bar', role: 'presentation' },
-          el('div', { className: 'bar-fill', style: `--v: ${worst ? barValue(worst.affinity) : 0}` })),
-        el('span', { className: 'strategy-note' }, worst
-          ? `${note} Least happy across ${picks.length} ${plural(picks.length, 'place', 'places')}: ${worst.member}.`
-          : `${note} Qloo found no places for this list.`),
+        el('span', { className: 'strategy-stat' }, leftOutSummary(list)),
+        el('span', { className: 'strategy-note' }, note),
+        el('ul', { className: 'strategy-places' }, list.map((place) => el('li', {}, [
+          el('span', { className: 'place-name' }, place.name),
+          place.leftOut.length
+            ? el('span', { className: 'left-out' }, `leaves out ${nameList.format(place.leftOut)}`)
+            : el('span', { className: 'fits-all' }, 'works for everyone'),
+        ]))),
       ]);
     }
 
-    function pointsDifference(ours, theirs) {
-      // From the rounded percentages on screen, so 83% vs 81% reads as 2 points, never 1.
-      const points = Math.round(ours.affinity * 100) - Math.round(theirs.affinity * 100);
-      if (points === 0) return 'the same';
-      return points > 0 ? `${points} ${plural(points, 'point', 'points')} better` : `${-points} ${plural(-points, 'point', 'points')} worse`;
+    function verdictText() {
+      const theirs = [
+        [`${lastRun.members[0].name}’s taste alone`, comparison.organizer],
+        ['going by popularity', comparison.popular],
+      ].filter(([, list]) => list.length > 0);
+      const ours = leftOutCount(comparison.tasteBridge);
+      const others = theirs.map(([label, list]) => `${label} leaves someone out at ${leftOutCount(list)} of ${list.length}`);
+      const lead = ours === 0 ? 'TasteBridge’s shortlist leaves nobody out' : `TasteBridge’s shortlist leaves someone out at ${ours}`;
+      return others.length ? `${lead}; ${others.join(', and ')}.` : `${lead}.`;
     }
 
     function renderComparison() {
       const organizer = lastRun.members[0].name;
       const strategies = [
-        { name: 'TasteBridge', note: 'Everyone’s likes, ranked so nobody is left out.', picks: lastRun.picks, ours: true },
-        { name: `${organizer}’s taste only`, note: `What the organizer’s likes alone would pick: ${comparison.organizer.map((p) => p.name).join(', ')}.`, picks: comparison.organizer },
-        { name: 'Most popular', note: `No taste at all, just the city’s top spots: ${comparison.popular.map((p) => p.name).join(', ')}.`, picks: comparison.popular },
+        { name: 'TasteBridge', note: 'Everyone’s likes, ranked so the least-happy person is as happy as possible.', list: comparison.tasteBridge, ours: true },
+        { name: `${organizer}’s taste only`, note: 'What the organizer’s likes alone would pick.', list: comparison.organizer },
+        { name: 'Most popular', note: 'No taste at all: the city’s top spots.', list: comparison.popular },
       ];
-
-      const ours = worstOff(lastRun.picks);
-      const verdicts = [
-        ['organizer only', worstOff(comparison.organizer)],
-        ['most popular', worstOff(comparison.popular)],
-      ].filter(([, theirs]) => theirs).map(([label, theirs]) => `${pointsDifference(ours, theirs)} than ${label}`);
-
       proofBody.replaceChildren(
+        el('p', { className: 'verdict' }, verdictText()),
         el('ol', { className: 'strategies' }, strategies.map(renderStrategy)),
-        verdicts.length
-          ? el('p', { className: 'verdict' }, `For the least-happy person, TasteBridge is ${verdicts.join(' and ')}.`)
-          : null,
+        el('p', { className: 'proof-method' },
+          `A place leaves someone out when it ranks in the bottom third, for that person, of all ${comparison.poolSize} places the three approaches would show.`),
       );
     }
 
@@ -1195,7 +1203,7 @@
         const result = await getJson('/api/compare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: run.category, members: run.members }),
+          body: JSON.stringify({ category: run.category, members: run.members, pickIds: run.picks.map((pick) => pick.id) }),
         });
         if (run !== lastRun) return; // a new search started while this was loading
         comparison = result;
