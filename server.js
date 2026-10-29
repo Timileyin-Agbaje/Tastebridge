@@ -43,17 +43,27 @@ class QlooError extends Error {
 // Cached by URL so repeated demo runs during judging don't burn the rate limit.
 const cache = new Map();
 
+// Qloo occasionally drops a connection ("fetch failed"); one retry hides that from the user.
+async function fetchWithRetry(url) {
+  const options = { headers: { 'X-Api-Key': QLOO_API_KEY } };
+  try {
+    return await fetch(url, options);
+  } catch (firstErr) {
+    console.warn(`Retrying Qloo after network error: ${firstErr.cause?.code ?? firstErr.message}`);
+    try {
+      return await fetch(url, options);
+    } catch (err) {
+      throw new QlooError(502, `Could not reach Qloo: ${err.cause?.code ?? err.message}`);
+    }
+  }
+}
+
 async function qlooGet(path, params) {
   const url = `${QLOO_BASE}${path}?${new URLSearchParams(params)}`;
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
 
-  let res;
-  try {
-    res = await fetch(url, { headers: { 'X-Api-Key': QLOO_API_KEY } });
-  } catch (err) {
-    throw new QlooError(502, `Could not reach Qloo: ${err.message}`);
-  }
+  const res = await fetchWithRetry(url);
   // Qloo answers "no results" with a 404; treat that as an empty list, not a failure.
   if (res.status === 404) return { results: [] };
   if (!res.ok) throw new QlooError(res.status, `Qloo returned ${res.status} for ${path}`);
@@ -79,16 +89,16 @@ async function resolveLike(query) {
   return top ? toEntity(top) : null;
 }
 
-// One insights call seeded with every member's likes: the shared shortlist.
-async function findCandidates(entityIds, category) {
+// The places Qloo picks for these likes. With no likes, Qloo ranks by popularity alone.
+async function findCandidates(entityIds, category, take = CANDIDATE_COUNT) {
   const { tags, excludeTags } = CATEGORIES[category];
   const params = {
     'filter.type': 'urn:entity:place',
     'filter.location.query': CITY,
-    'signal.interests.entities': entityIds.join(','),
     'filter.tags': tags,
-    take: CANDIDATE_COUNT,
+    take,
   };
+  if (entityIds.length > 0) params['signal.interests.entities'] = entityIds.join(',');
   if (excludeTags) params['filter.exclude.tags'] = excludeTags;
   const data = await qlooGet('/v2/insights', params);
   return data.results?.entities ?? [];
@@ -132,21 +142,36 @@ function byLeastMisery(a, b) {
   return b.lowestAffinity - a.lowestAffinity || b.averageAffinity - a.averageAffinity;
 }
 
+// Scores every place for every member, dropping places Qloo couldn't score for someone.
+async function scoreList(places, members) {
+  if (places.length === 0) return [];
+  const placeIds = places.map((place) => place.entity_id);
+  const memberAffinities = await Promise.all(
+    members.map((member) => scoreForMember(member, placeIds)),
+  );
+  return places
+    .filter((place) => memberAffinities.every((scores) => scores.has(place.entity_id)))
+    .map((place) => toPick(place, members, memberAffinities));
+}
+
 async function recommend(members, category) {
   const candidates = await findCandidates(members.flatMap((m) => m.entityIds), category);
-  if (candidates.length === 0) return { candidateCount: 0, picks: [] };
+  const scored = await scoreList(candidates, members);
+  return { candidateCount: candidates.length, picks: scored.sort(byLeastMisery).slice(0, PICK_COUNT) };
+}
 
-  const candidateIds = candidates.map((place) => place.entity_id);
-  const memberAffinities = await Promise.all(
-    members.map((member) => scoreForMember(member, candidateIds)),
-  );
-
-  const picks = candidates
-    .filter((place) => memberAffinities.every((scores) => scores.has(place.entity_id)))
-    .map((place) => toPick(place, members, memberAffinities))
-    .sort(byLeastMisery)
-    .slice(0, PICK_COUNT);
-  return { candidateCount: candidates.length, picks };
+// The proof: what the group would get from the organizer's taste alone, or from popularity alone.
+// Both lists keep Qloo's own order and are scored per member exactly like the TasteBridge picks.
+async function compare(members, category) {
+  const [organizerPlaces, popularPlaces] = await Promise.all([
+    findCandidates(members[0].entityIds, category, PICK_COUNT),
+    findCandidates([], category, PICK_COUNT),
+  ]);
+  const [organizer, popular] = await Promise.all([
+    scoreList(organizerPlaces, members),
+    scoreList(popularPlaces, members),
+  ]);
+  return { organizer, popular };
 }
 
 // Returns an error message for the user, or null if the request is usable.
@@ -197,6 +222,19 @@ app.post('/api/recommend', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(502).json({ error: "We couldn't reach our taste engine. Try again in a moment." });
+  }
+});
+
+app.post('/api/compare', async (req, res) => {
+  const error = validateRecommendRequest(req.body);
+  if (error) return res.status(400).json({ error });
+
+  const members = req.body.members.map((m) => ({ name: m.name.trim(), entityIds: m.entityIds }));
+  try {
+    res.json(await compare(members, req.body.category));
+  } catch (err) {
+    console.error(err.message);
+    res.status(502).json({ error: "We couldn't load the comparison. Try again in a moment." });
   }
 });
 

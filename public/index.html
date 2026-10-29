@@ -276,6 +276,47 @@
     }
     .edit-group { margin-top: 16px; width: 100%; }
 
+    /* Proof panel */
+    .proof {
+      margin-top: 16px;
+      border: 1px solid var(--line); border-radius: var(--radius);
+      background: var(--surface); box-shadow: var(--shadow);
+    }
+    .proof[hidden] { display: none; }
+    .proof-toggle {
+      width: 100%; min-height: 52px; padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      border: 0; background: transparent; text-align: left; font-weight: 600;
+      transition: transform 160ms var(--ease-out);
+    }
+    .proof-toggle:active { transform: scale(0.99); }
+    .chevron { flex-shrink: 0; color: var(--muted); transition: transform 200ms var(--ease-out); }
+    .proof-toggle[aria-expanded="true"] .chevron { transform: rotate(180deg); }
+    .proof-panel {
+      padding: 0 16px 16px;
+      transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+      @starting-style { opacity: 0; transform: translateY(-4px); }
+    }
+    .proof-panel[hidden] { display: none; }
+    .proof-intro { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
+    .strategies { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+    .strategy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
+    .strategy-name { font-weight: 600; font-size: 15px; min-width: 0; }
+    .strategy-pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; }
+    .strategy-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    .strategy .bar { margin: 4px 0 2px; }
+    .strategy:not(.ours) .bar-fill { background: var(--muted); }
+    .strategy.ours .strategy-pct { color: var(--accent); }
+    .verdict {
+      margin: 16px 0 0; padding: 12px 14px; border-radius: 12px;
+      background: var(--accent-soft); font-size: 14px; font-weight: 500;
+    }
+    .proof-status { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 10px; }
+    .proof-status .step-dot {
+      margin: 0; border-color: var(--accent); border-right-color: transparent;
+      animation: spin 700ms linear infinite;
+    }
+
     @media (hover: hover) and (pointer: fine) {
       .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
       .add-person:hover:not(:disabled) { border-color: var(--muted); color: var(--ink); }
@@ -288,7 +329,9 @@
       .pick { transform: none; transition: opacity 200ms ease; @starting-style { transform: none; } }
       .bar-fill { transition: none; }
       .step[data-state="active"] .step-dot { animation-duration: 2s; }
-      .btn:active, .icon-btn:active, .add-person:active, .seg:active span { transform: none; }
+      .btn:active, .icon-btn:active, .add-person:active, .seg:active span, .proof-toggle:active { transform: none; }
+      .proof-panel { transition: opacity 200ms ease; @starting-style { transform: none; } }
+      .proof-status .step-dot { animation-duration: 2s; }
     }
   </style>
 </head>
@@ -336,6 +379,16 @@
       <h2 id="results-heading">Your shortlist</h2>
       <p class="results-intro">Ranked so the least-happy person is as happy as possible.</p>
       <ol class="picks" id="picks"></ol>
+      <div class="proof" id="proof">
+        <button type="button" class="proof-toggle" id="proof-toggle" aria-expanded="false" aria-controls="proof-panel">
+          <span>Why group taste?</span>
+          <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <div class="proof-panel" id="proof-panel" hidden>
+          <p class="proof-intro">Same people, same scoring. Only the way the places are chosen changes. Each number is the least-happy person’s average match across that list’s 5 places.</p>
+          <div id="proof-body" aria-live="polite"></div>
+        </div>
+      </div>
       <button type="button" class="btn btn-secondary edit-group" id="edit-group">Change the group</button>
     </section>
   </main>
@@ -373,10 +426,18 @@
     const progressEl = document.getElementById('progress');
     const resultsEl = document.getElementById('results');
     const picksEl = document.getElementById('picks');
+    const proofEl = document.getElementById('proof');
+    const proofToggle = document.getElementById('proof-toggle');
+    const proofPanel = document.getElementById('proof-panel');
+    const proofBody = document.getElementById('proof-body');
 
     // Each like: { text, status: 'new' | 'found' | 'missing', entity }
     let members = [newMember(), newMember()];
     let busy = false;
+    // The group and picks behind the results on screen; the proof panel compares against these.
+    let lastRun = null;
+    let comparison = null; // null until fetched for lastRun
+    let comparisonLoading = false;
 
     function newMember(name = '', likes = []) {
       return { name, likes: likes.map((text) => ({ text, status: 'new', entity: null })) };
@@ -603,6 +664,7 @@
           setStep('combine', 'done', `${candidateCount} ${plural(candidateCount, 'place', 'places')} shortlisted`);
           setStep('score', 'done', `${candidateCount * group.length} scores checked`);
         }
+        lastRun = { category, members: group, picks };
         renderResults(picks);
       } catch (err) {
         for (const step of progressEl.querySelectorAll('[data-state="active"]')) step.dataset.state = 'pending';
@@ -682,9 +744,106 @@
       picksEl.replaceChildren(...(picks.length
         ? picks.map(renderPick)
         : [el('li', { className: 'empty' }, 'No places matched this group. Try another category or swap in a few different likes.')]));
+      resetProof(picks.length > 0);
       resultsEl.hidden = false;
       scrollToSection(resultsEl);
     }
+
+    // ---------- Proof panel ----------
+
+    function resetProof(visible) {
+      comparison = null;
+      comparisonLoading = false;
+      proofEl.hidden = !visible;
+      setProofOpen(false);
+      proofBody.replaceChildren();
+    }
+
+    function setProofOpen(open) {
+      proofToggle.setAttribute('aria-expanded', String(open));
+      proofPanel.hidden = !open;
+    }
+
+    // The least-happy person's average match across a list: the number TasteBridge optimises for.
+    function worstOff(picks) {
+      if (picks.length === 0) return null;
+      const averages = picks[0].scores.map((score, i) => ({
+        member: score.member,
+        affinity: picks.reduce((sum, pick) => sum + pick.scores[i].affinity, 0) / picks.length,
+      }));
+      return averages.reduce((low, a) => (a.affinity < low.affinity ? a : low));
+    }
+
+    function renderStrategy({ name, note, picks, ours }) {
+      const worst = worstOff(picks);
+      return el('li', { className: `strategy${ours ? ' ours' : ''}` }, [
+        el('span', { className: 'strategy-name' }, name),
+        el('span', { className: 'strategy-pct' }, worst ? percent(worst.affinity) : '—'),
+        el('div', { className: 'bar', role: 'presentation' },
+          el('div', { className: 'bar-fill', style: `--v: ${worst ? barValue(worst.affinity) : 0}` })),
+        el('span', { className: 'strategy-note' }, worst
+          ? `${note} Least happy: ${worst.member}.`
+          : `${note} Qloo found no places for this list.`),
+      ]);
+    }
+
+    function pointsDifference(ours, theirs) {
+      // From the rounded percentages on screen, so 83% vs 81% reads as 2 points, never 1.
+      const points = Math.round(ours.affinity * 100) - Math.round(theirs.affinity * 100);
+      if (points === 0) return 'the same';
+      return points > 0 ? `${points} ${plural(points, 'point', 'points')} better` : `${-points} ${plural(-points, 'point', 'points')} worse`;
+    }
+
+    function renderComparison() {
+      const organizer = lastRun.members[0].name;
+      const strategies = [
+        { name: 'TasteBridge', note: 'Everyone’s likes, ranked so nobody is left out.', picks: lastRun.picks, ours: true },
+        { name: `${organizer}’s taste only`, note: `What the organizer’s likes alone would pick: ${comparison.organizer.map((p) => p.name).join(', ')}.`, picks: comparison.organizer },
+        { name: 'Most popular', note: `No taste at all, just the city’s top spots: ${comparison.popular.map((p) => p.name).join(', ')}.`, picks: comparison.popular },
+      ];
+
+      const ours = worstOff(lastRun.picks);
+      const verdicts = [
+        ['organizer only', worstOff(comparison.organizer)],
+        ['most popular', worstOff(comparison.popular)],
+      ].filter(([, theirs]) => theirs).map(([label, theirs]) => `${pointsDifference(ours, theirs)} than ${label}`);
+
+      proofBody.replaceChildren(
+        el('ol', { className: 'strategies' }, strategies.map(renderStrategy)),
+        verdicts.length
+          ? el('p', { className: 'verdict' }, `For the least-happy person, TasteBridge is ${verdicts.join(' and ')}.`)
+          : null,
+      );
+    }
+
+    async function loadComparison() {
+      const run = lastRun;
+      comparisonLoading = true;
+      proofBody.replaceChildren(el('p', { className: 'proof-status' }, [
+        el('span', { className: 'step-dot' }), 'Building the other two lists…',
+      ]));
+      try {
+        const result = await getJson('/api/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category: run.category, members: run.members }),
+        });
+        if (run !== lastRun) return; // a new search started while this was loading
+        comparison = result;
+        renderComparison();
+      } catch (err) {
+        if (run !== lastRun) return;
+        proofBody.replaceChildren(el('p', { className: 'error' }, `${err.message} Close and reopen this panel to retry.`));
+      } finally {
+        if (run === lastRun) comparisonLoading = false;
+      }
+    }
+
+    proofToggle.addEventListener('click', () => {
+      const open = proofToggle.getAttribute('aria-expanded') !== 'true';
+      setProofOpen(open);
+      if (open && !comparison && !comparisonLoading) loadComparison();
+    });
 
     function scrollToSection(section) {
       const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
