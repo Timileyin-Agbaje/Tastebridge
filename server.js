@@ -23,11 +23,13 @@ const CATEGORIES = {
   things_to_do: { tags: 'urn:tag:category:place:tourist_attraction' },
 };
 
-// Qloo's taste entity types. Leaving out localities stops "Patagonia" resolving to the region.
+// Qloo's taste entity types. Leaving out localities stops "Patagonia" resolving to the region;
+// leaving out places stops "Nike" matching a shoe store in São Paulo.
 const LIKE_TYPES = [
   'artist', 'book', 'brand', 'destination', 'movie',
-  'person', 'place', 'podcast', 'tv_show', 'videogame',
+  'person', 'podcast', 'tv_show', 'videogame',
 ].map((type) => `urn:entity:${type}`).join(',');
+const SUGGESTION_COUNT = 5;
 
 if (!QLOO_API_KEY) {
   console.error('QLOO_API_KEY is not set. Run with: node --env-file=.env server.js');
@@ -86,15 +88,33 @@ function toEntity(result) {
     id: result.entity_id,
     name: result.name,
     type: result.types?.[0] ?? null,
+    image: result.properties?.image?.url ?? null,
+    // Tells same-named entities apart: a film's year, a book's author, a person's birth date.
+    disambiguation: result.disambiguation ?? null,
+    description: result.properties?.short_description ?? null,
     tags: (result.tags ?? []).map((tag) => ({ id: tag.tag_id, name: tag.name })),
   };
 }
 
-// Turns one free-text like ("Radiohead", "Dune") into its best-matching Qloo entity, or null.
-async function resolveLike(query) {
-  const data = await qlooGet('/search', { query, types: LIKE_TYPES, take: 1 });
-  const top = data.results?.[0];
-  return top ? toEntity(top) : null;
+// Qloo entities matching a free-text like, best first. Resolve and suggest both ask for the
+// same `take`, so they share a cache entry: a like picked from suggestions resolves instantly.
+async function searchLikes(query) {
+  const data = await qlooGet('/search', { query, types: LIKE_TYPES, take: SUGGESTION_COUNT });
+  return (data.results ?? []).map(toEntity);
+}
+
+// Returns the trimmed `q` param, or sends a 400 and returns null.
+function readLikeQuery(req, res) {
+  const query = String(req.query.q ?? '').trim();
+  if (!query) {
+    res.status(400).json({ error: 'Type something you like first.' });
+    return null;
+  }
+  if (query.length > MAX_LIKE_LENGTH) {
+    res.status(400).json({ error: `Keep each like under ${MAX_LIKE_LENGTH} characters.` });
+    return null;
+  }
+  return query;
 }
 
 // The places Qloo picks for these likes. With no likes, Qloo ranks by popularity alone.
@@ -213,18 +233,30 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Turns one free-text like ("Radiohead", "Dune") into its best-matching Qloo entity, or null.
 app.get('/api/resolve', async (req, res) => {
-  const query = String(req.query.q ?? '').trim();
-  if (!query) return res.status(400).json({ error: 'Type something you like first.' });
-  if (query.length > MAX_LIKE_LENGTH) {
-    return res.status(400).json({ error: `Keep each like under ${MAX_LIKE_LENGTH} characters.` });
-  }
+  const query = readLikeQuery(req, res);
+  if (query === null) return;
 
   try {
-    res.json({ query, entity: await resolveLike(query) });
+    const [best] = await searchLikes(query);
+    res.json({ query, entity: best ?? null });
   } catch (err) {
     console.error(err.message);
     res.status(502).json({ error: "We couldn't reach our taste engine. Try again in a moment." });
+  }
+});
+
+// Up to five matches for what someone is typing, so they can pick the right "Dune".
+app.get('/api/suggest', async (req, res) => {
+  const query = readLikeQuery(req, res);
+  if (query === null) return;
+
+  try {
+    res.json({ query, suggestions: await searchLikes(query) });
+  } catch (err) {
+    console.error(err.message);
+    res.status(502).json({ error: "Suggestions aren't available right now." });
   }
 });
 

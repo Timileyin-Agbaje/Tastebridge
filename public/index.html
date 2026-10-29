@@ -157,6 +157,30 @@
     }
     .like-input::placeholder, .name-input::placeholder { color: var(--muted); opacity: 0.8; }
     .like-input[hidden] { display: none; }
+    .chip.has-img { padding-left: 4px; }
+    .chip-img { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: 6px; }
+
+    /* Like suggestions: inline under the input, so the phone keyboard never covers them */
+    .suggest {
+      list-style: none; margin: 6px 0 0; padding: 4px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--surface); box-shadow: var(--shadow);
+    }
+    .suggest[hidden] { display: none; }
+    .option {
+      display: flex; align-items: center; gap: 10px;
+      min-height: 48px; padding: 6px 8px; border-radius: 8px; cursor: pointer;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    }
+    .option[aria-selected="true"] { background: var(--accent-soft); }
+    .option img, .option-img {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+      object-fit: cover; background: var(--surface-2);
+    }
+    .option-text { min-width: 0; display: grid; }
+    .option-name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+    .option-sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .suggest-status { padding: 10px 8px; color: var(--muted); font-size: 14px; }
 
     .add-person {
       width: 100%; margin-top: 12px; padding: 12px;
@@ -353,6 +377,7 @@
       .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
       .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
       .link-btn:hover { background: var(--surface-2); }
+      .option:hover:not([aria-selected="true"]) { background: var(--surface-2); }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -537,14 +562,29 @@
       });
 
       const likesEl = el('div', { className: 'likes' });
+      const listId = `suggest-${nextSuggestId++}`;
       const likeInput = el('input', {
         className: 'like-input', placeholder: 'Add a like: artist, film, book, brand…',
         autocomplete: 'off', autocapitalize: 'words', spellcheck: false,
-        enterKeyHint: 'done', maxLength: 100,
+        enterKeyHint: 'done', maxLength: 100, role: 'combobox',
         'aria-label': `Add something ${displayName(member, index)} likes`,
+        'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': listId,
       });
       // Set as an attribute: some browsers expose a boolean `autocorrect` property where 'off' would read as true.
       likeInput.setAttribute('autocorrect', 'off');
+      const listEl = el('ul', { className: 'suggest', id: listId, role: 'listbox', hidden: true });
+
+      const commitLike = (like) => {
+        addLike(member, like);
+        likeInput.value = '';
+        suggestions.close();
+        renderLikes(member, likesEl, likeInput);
+      };
+      const suggestions = attachSuggestions(likeInput, listEl, (entity) => {
+        commitLike({ text: entity.name, status: 'found', entity });
+        likeInput.focus();
+      });
+
       // Inside a form, Enter would submit the whole group; "next" should move to this person's likes.
       nameInput.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' || isComposing(event)) return;
@@ -552,19 +592,16 @@
         if (!likeInput.hidden) likeInput.focus();
       });
       likeInput.addEventListener('keydown', (event) => {
-        if ((event.key !== 'Enter' && event.key !== ',') || isComposing(event)) return;
+        if (isComposing(event) || suggestions.handleKey(event)) return;
+        if (event.key !== 'Enter' && event.key !== ',') return;
         event.preventDefault();
-        addLike(member, likeInput.value);
-        likeInput.value = '';
-        renderLikes(member, likesEl, likeInput);
+        commitLike({ text: likeInput.value, status: 'new', entity: null });
         likeInput.focus();
       });
-      // Typing a like and then tapping away shouldn't lose it.
+      // Typing a like and then tapping away shouldn't lose it; it's matched when the group is submitted.
       likeInput.addEventListener('blur', () => {
-        if (!likeInput.value.trim()) return;
-        addLike(member, likeInput.value);
-        likeInput.value = '';
-        renderLikes(member, likesEl, likeInput);
+        suggestions.close();
+        if (likeInput.value.trim()) commitLike({ text: likeInput.value, status: 'new', entity: null });
       });
       renderLikes(member, likesEl, likeInput);
 
@@ -572,7 +609,124 @@
         el('div', { className: 'member-head' }, [avatar, nameInput, removeBtn]),
         likesEl,
         likeInput,
+        listEl,
       ]);
+    }
+
+    // ---------- Like suggestions (combobox) ----------
+
+    const SUGGEST_DELAY_MS = 250;
+    const SUGGEST_MIN_CHARS = 2;
+    const suggestCache = new Map(); // query → entities, so backspacing doesn't refetch
+    let nextSuggestId = 0;
+
+    // Wires typeahead onto a like input. Returns { handleKey, close }; handleKey returns true
+    // when it used the key (arrows, Escape, or Enter on a highlighted suggestion).
+    function attachSuggestions(input, listEl, onPick) {
+      let timer = null;
+      let options = [];
+      let active = -1;
+
+      function close() {
+        clearTimeout(timer);
+        options = [];
+        active = -1;
+        listEl.hidden = true;
+        listEl.replaceChildren();
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+      }
+
+      function showStatus(text) {
+        options = [];
+        active = -1;
+        listEl.replaceChildren(el('li', { className: 'suggest-status', role: 'presentation' }, text));
+        listEl.hidden = false;
+        input.setAttribute('aria-expanded', 'false');
+      }
+
+      function showOptions(entities) {
+        if (entities.length === 0) return showStatus('No matches. Press Enter to add it anyway.');
+        options = entities;
+        active = -1;
+        listEl.replaceChildren(...entities.map((entity, i) => {
+          const option = el('li', { className: 'option', id: `${listEl.id}-${i}`, role: 'option', 'aria-selected': 'false' }, [
+            entity.image ? el('img', { src: entity.image, alt: '' }) : el('span', { className: 'option-img' }),
+            el('span', { className: 'option-text' }, [
+              el('span', { className: 'option-name' }, entity.name),
+              el('span', { className: 'option-sub' }, subtitleFor(entity)),
+            ]),
+          ]);
+          option.addEventListener('pointerdown', (event) => event.preventDefault()); // keep focus in the input
+          option.addEventListener('click', () => onPick(entity));
+          return option;
+        }));
+        listEl.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+
+      function highlight(index) {
+        active = index;
+        [...listEl.children].forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+        if (index >= 0) {
+          input.setAttribute('aria-activedescendant', listEl.children[index].id);
+          listEl.children[index].scrollIntoView({ block: 'nearest' });
+        } else {
+          input.removeAttribute('aria-activedescendant');
+        }
+      }
+
+      async function load(query) {
+        if (suggestCache.has(query)) return showOptions(suggestCache.get(query));
+        showStatus('Searching…');
+        try {
+          const { suggestions } = await getJson(`/api/suggest?q=${encodeURIComponent(query)}`);
+          suggestCache.set(query, suggestions);
+          if (input.value.trim() === query) showOptions(suggestions); // ignore answers to older keystrokes
+        } catch {
+          if (input.value.trim() === query) showStatus('Suggestions are unavailable. Press Enter to add it anyway.');
+        }
+      }
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const query = input.value.trim();
+        if (query.length < SUGGEST_MIN_CHARS) return close();
+        timer = setTimeout(() => load(query), SUGGEST_DELAY_MS);
+      });
+
+      function handleKey(event) {
+        if (event.key === 'Escape' && !listEl.hidden) {
+          event.preventDefault();
+          close();
+          return true;
+        }
+        if (options.length === 0) return false;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          const step = event.key === 'ArrowDown' ? 1 : -1;
+          highlight((active + step + options.length) % options.length);
+          return true;
+        }
+        if (event.key === 'Enter' && active >= 0) {
+          event.preventDefault();
+          onPick(options[active]);
+          return true;
+        }
+        return false;
+      }
+
+      return { handleKey, close };
+    }
+
+    // "film · 2021", "book · 1965, Frank Herbert", "TV show · 2005–2013", "person · Canadian rapper…"
+    function subtitleFor(entity) {
+      const type = TYPE_LABELS[entity.type] ?? '';
+      let detail = (entity.disambiguation ?? '').trim();
+      if (detail === entity.name || /^\d{4}-\d{2}-\d{2}$/.test(detail)) detail = ''; // a name or birth date doesn't help
+      detail = detail.replace(/^(\d{4}),(\d{4})$/, (_, from, to) => (from === to ? from : `${from}–${to}`));
+      if (!detail && entity.description) detail = entity.description;
+      return [type, detail].filter(Boolean).join(' · ');
     }
 
     // Enter that confirms a Chinese/Japanese IME candidate isn't "done typing".
@@ -581,11 +735,14 @@
       return event.isComposing || event.keyCode === 229;
     }
 
-    function addLike(member, text) {
-      const clean = text.replace(/,/g, ' ').trim();
-      if (!clean || member.likes.length >= MAX_LIKES) return;
-      if (member.likes.some((like) => like.text.toLowerCase() === clean.toLowerCase())) return;
-      member.likes.push({ text: clean, status: 'new', entity: null });
+    // like: { text, status: 'new' | 'found', entity } — 'found' when picked from suggestions.
+    function addLike(member, like) {
+      const text = like.text.replace(/,/g, ' ').trim();
+      if (!text || member.likes.length >= MAX_LIKES) return;
+      const duplicate = member.likes.some((existing) => (like.entity && existing.entity?.id === like.entity.id)
+        || existing.text.toLowerCase() === text.toLowerCase());
+      if (duplicate) return;
+      member.likes.push({ ...like, text });
     }
 
     function renderLikes(member, likesEl, likeInput) {
@@ -599,8 +756,9 @@
         if (like.status === 'missing') note = el('small', {}, 'not found');
         if (like.status === 'found') note = el('small', {}, TYPE_LABELS[like.entity.type] ?? '');
         const label = like.status === 'found' ? like.entity.name : like.text;
-        return el('span', { className: `chip ${like.status}`, title: like.text }, [
-          el('span', { className: 'chip-text' }, label), note, removeBtn,
+        const thumb = like.entity?.image ? el('img', { className: 'chip-img', src: like.entity.image, alt: '' }) : null;
+        return el('span', { className: `chip ${like.status}${thumb ? ' has-img' : ''}`, title: like.text }, [
+          thumb, el('span', { className: 'chip-text' }, label), note, removeBtn,
         ]);
       }));
       likeInput.hidden = member.likes.length >= MAX_LIKES;
