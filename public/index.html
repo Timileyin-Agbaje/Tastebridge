@@ -794,14 +794,34 @@
     }
 
     function renderMeta(pick) {
-      const status = openStatus(pick.hours);
       const items = [
         pick.neighborhood ?? pick.address,
         pick.rating ? `★ ${pick.rating.toFixed(1)}` : null,
         pick.priceLevel ? '$'.repeat(pick.priceLevel) : null,
-        status ? el('span', { className: status.state }, status.text) : null,
+        renderOpenStatus(pick.hours),
       ].filter(Boolean);
       return el('ul', { className: 'meta' }, items.map((item) => el('li', {}, item)));
+    }
+
+    // Remembers each badge's hours so it can be refreshed without another Qloo call.
+    const openStatusHours = new WeakMap();
+
+    function renderOpenStatus(hours) {
+      const status = openStatus(hours);
+      if (!status) return null;
+      const badge = el('span', { className: `open-status ${status.state}` }, status.text);
+      openStatusHours.set(badge, hours);
+      return badge;
+    }
+
+    // A page left open past 5 PM shouldn't still say "Opens 5 PM".
+    function refreshOpenStatuses() {
+      for (const badge of document.querySelectorAll('.open-status')) {
+        const status = openStatus(openStatusHours.get(badge));
+        if (!status) continue;
+        badge.className = `open-status ${status.state}`;
+        badge.textContent = status.text;
+      }
     }
 
     function renderLinks(pick) {
@@ -991,6 +1011,12 @@
     }
 
     // ---------- Wiring ----------
+
+    const OPEN_STATUS_REFRESH_MS = 60 * 1000;
+    setInterval(refreshOpenStatuses, OPEN_STATUS_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshOpenStatuses();
+    });
 
     addPersonBtn.addEventListener('click', () => {
       if (members.length >= MAX_MEMBERS) return;
