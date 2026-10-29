@@ -24,6 +24,7 @@
       --accent-soft: rgba(194, 65, 12, 0.1);
       --track: rgba(31, 27, 22, 0.08);
       --danger: #b42318;
+      --good: #2b7a3d;
       --shadow: 0 1px 2px rgba(31, 27, 22, 0.04), 0 4px 16px rgba(31, 27, 22, 0.06);
       --radius: 16px;
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -43,6 +44,7 @@
         --accent-soft: rgba(255, 138, 80, 0.14);
         --track: rgba(243, 238, 232, 0.1);
         --danger: #ff8a80;
+        --good: #6fcf86;
         --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
       }
     }
@@ -61,7 +63,7 @@
     }
     button, input { font: inherit; color: inherit; }
     input { font-size: 16px; } /* below 16px, iOS zooms the page on focus */
-    button, [role="button"], label.seg {
+    button, [role="button"], label.seg, a.link-btn {
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
@@ -235,7 +237,7 @@
       background: var(--surface);
       border: 1px solid var(--line); border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 16px;
+      overflow: hidden;
       transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out);
       transition-delay: calc(var(--i, 0) * 50ms);
       @starting-style { opacity: 0; transform: translateY(8px); }
@@ -253,8 +255,33 @@
       font-family: var(--display); font-weight: 600;
       font-size: 21px; line-height: 1.2; margin: 2px 0 2px; overflow-wrap: anywhere;
     }
-    .address { color: var(--muted); font-size: 14px; margin: 0; overflow-wrap: anywhere; }
-    .why { margin: 12px 0 14px; font-size: 15px; }
+    .pick-photo {
+      display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+      background: var(--surface-2);
+    }
+    .pick-body { padding: 16px; }
+    .meta {
+      display: flex; flex-wrap: wrap; gap: 2px 6px;
+      margin: 2px 0 0; padding: 0; list-style: none;
+      color: var(--muted); font-size: 14px;
+    }
+    .meta li + li::before { content: "·"; margin-right: 6px; }
+    .meta .open { color: var(--good); font-weight: 600; }
+    .meta .closed { color: var(--danger); }
+    .desc {
+      margin: 12px 0 0; font-size: 15px;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+    }
+    .links { display: flex; gap: 8px; margin-top: 14px; }
+    .link-btn {
+      flex: 1; min-height: 44px; padding: 10px 12px;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: 12px;
+      color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none;
+      transition: transform 160ms var(--ease-out), background-color 160ms ease;
+    }
+    .link-btn:active { transform: scale(0.97); }
+    .why { margin: 14px 0; font-size: 15px; }
     .scores { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 12px; }
     .score-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
     .score-name { font-weight: 600; font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
@@ -325,13 +352,14 @@
       .seg:hover input:not(:checked) + span { color: var(--ink); }
       .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
       .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+      .link-btn:hover { background: var(--surface-2); }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .pick { transform: none; transition: opacity 200ms ease; @starting-style { transform: none; } }
       .bar-fill { transition: none; }
       .step[data-state="active"] .step-dot { animation-duration: 2s; }
-      .btn:active, .icon-btn:active, .add-person:active, .seg:active span, .proof-toggle:active { transform: none; }
+      .btn:active, .icon-btn:active, .add-person:active, .seg:active span, .proof-toggle:active, .link-btn:active { transform: none; }
       .proof-panel { transition: opacity 200ms ease; @starting-style { transform: none; } }
       .proof-status .step-dot { animation-duration: 2s; }
     }
@@ -744,16 +772,112 @@
       });
 
       return el('li', { className: 'pick', style: `--i: ${index}` }, [
-        el('div', { className: 'pick-head' }, [
-          el('span', { className: 'rank', 'aria-label': `Pick ${index + 1}` }, String(index + 1)),
-          el('div', { className: 'pick-title' }, [
-            el('h3', {}, pick.name),
-            pick.address ? el('p', { className: 'address' }, pick.address) : null,
+        renderPhoto(pick),
+        el('div', { className: 'pick-body' }, [
+          el('div', { className: 'pick-head' }, [
+            el('span', { className: 'rank', 'aria-label': `Pick ${index + 1}` }, String(index + 1)),
+            el('div', { className: 'pick-title' }, [el('h3', {}, pick.name), renderMeta(pick)]),
           ]),
+          pick.description ? el('p', { className: 'desc' }, pick.description) : null,
+          renderLinks(pick),
+          el('p', { className: 'why' }, whyLine(pick)),
+          el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
         ]),
-        el('p', { className: 'why' }, whyLine(pick)),
-        el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
       ]);
+    }
+
+    function renderPhoto(pick) {
+      if (!pick.image) return null;
+      const img = el('img', { className: 'pick-photo', src: pick.image, alt: '', loading: 'lazy', decoding: 'async' });
+      img.addEventListener('error', () => img.remove()); // a broken photo shouldn't leave a grey box
+      return img;
+    }
+
+    function renderMeta(pick) {
+      const status = openStatus(pick.hours);
+      const items = [
+        pick.neighborhood ?? pick.address,
+        pick.rating ? `★ ${pick.rating.toFixed(1)}` : null,
+        pick.priceLevel ? '$'.repeat(pick.priceLevel) : null,
+        status ? el('span', { className: status.state }, status.text) : null,
+      ].filter(Boolean);
+      return el('ul', { className: 'meta' }, items.map((item) => el('li', {}, item)));
+    }
+
+    function renderLinks(pick) {
+      const mapsQuery = encodeURIComponent([pick.name, pick.address].filter(Boolean).join(', '));
+      const website = safeUrl(pick.website);
+      return el('div', { className: 'links' }, [
+        el('a', {
+          className: 'link-btn', href: `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`,
+          target: '_blank', rel: 'noopener', 'aria-label': `Directions to ${pick.name}`,
+        }, 'Directions'),
+        website
+          ? el('a', { className: 'link-btn', href: website, target: '_blank', rel: 'noopener', 'aria-label': `${pick.name} website` }, 'Website')
+          : null,
+      ]);
+    }
+
+    // Qloo websites sometimes come without a scheme; anything that isn't http(s) is dropped.
+    function safeUrl(value) {
+      if (!value) return null;
+      for (const candidate of [value, `https://${value}`]) {
+        try {
+          const url = new URL(candidate);
+          if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
+        } catch { /* try the next form */ }
+      }
+      return null;
+    }
+
+    // ---------- Opening hours (Qloo gives local New York times) ----------
+
+    const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+    function newYorkNow() {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
+      }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+      return { day: WEEKDAYS.indexOf(parts.weekday.toLowerCase()), minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+    }
+
+    function toMinutes(time) {
+      const [hours, minutes] = time.replace('T', '').split(':').map(Number);
+      return hours * 60 + minutes;
+    }
+
+    function formatTime(minutes) {
+      const hour24 = Math.floor(minutes / 60) % 24;
+      const minute = minutes % 60;
+      const hour12 = hour24 % 12 || 12;
+      return `${hour12}${minute ? `:${String(minute).padStart(2, '0')}` : ''} ${hour24 < 12 ? 'AM' : 'PM'}`;
+    }
+
+    // Slots for one day as [opens, closes] in minutes; a close at or before the open runs past midnight.
+    function slotsFor(hours, day) {
+      return (hours[WEEKDAYS[day]] ?? [])
+        .filter((slot) => !slot.closed && slot.opens && slot.closes)
+        .map((slot) => [toMinutes(slot.opens), toMinutes(slot.closes)]);
+    }
+
+    // { state: 'open' | 'later' | 'closed', text } for right now in New York, or null when Qloo has no usable hours.
+    function openStatus(hours) {
+      if (!hours) return null;
+      const hasAnyTimes = Object.values(hours).some((slots) => slots.some((slot) => slot.opens));
+      if (!hasAnyTimes) return null; // "closed every day" with no times is missing data, not a closed venue
+
+      const { day, minutes } = newYorkNow();
+      for (const [opens, closes] of slotsFor(hours, (day + 6) % 7)) {
+        if (closes <= opens && minutes < closes) return { state: 'open', text: `Open until ${formatTime(closes)}` };
+      }
+      const today = slotsFor(hours, day);
+      for (const [opens, closes] of today) {
+        const overnight = closes <= opens;
+        if (minutes >= opens && (overnight || minutes < closes)) return { state: 'open', text: `Open until ${formatTime(closes)}` };
+      }
+      const later = today.filter(([opens]) => opens > minutes).sort((a, b) => a[0] - b[0])[0];
+      if (later) return { state: 'later', text: `Opens ${formatTime(later[0])}` };
+      return { state: 'closed', text: today.length ? 'Closed for today' : 'Closed today' };
     }
 
     function renderResults(picks) {

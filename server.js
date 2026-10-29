@@ -130,10 +130,18 @@ function toPick(place, members, memberAffinities) {
     affinity: memberAffinities[i].get(place.entity_id),
   }));
   const affinities = scores.map((score) => score.affinity);
+  const props = place.properties ?? {};
   return {
     id: place.entity_id,
     name: place.name,
-    address: place.properties?.address ?? null,
+    address: props.address ?? null,
+    neighborhood: props.neighborhood ?? null,
+    description: props.short_description ?? null,
+    image: props.images?.[0]?.url ?? props.image?.url ?? null,
+    rating: props.business_rating ?? null,
+    priceLevel: props.price_level ?? null, // 1–4
+    website: props.website ?? null,
+    hours: props.hours ?? null, // { monday: [{ opens: "T14:00:00", closes: "T01:00:00", closed }] }, local time
     // Insights tags use `id`; search results (see toEntity) use `tag_id`.
     tags: (place.tags ?? []).map((tag) => ({ id: tag.id, name: tag.name })),
     scores,
