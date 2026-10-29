@@ -46,11 +46,15 @@ const cache = new Map();
 
 // Qloo occasionally drops a connection ("fetch failed") or hangs; one retry hides that from the user.
 // The timeout keeps a hung call from holding the spinner until Vercel kills the function.
+// Each attempt reads the whole body under its own timeout, so a body that stalls is retried too.
 async function fetchWithRetry(url) {
-  const request = () => fetch(url, {
-    headers: { 'X-Api-Key': QLOO_API_KEY },
-    signal: AbortSignal.timeout(QLOO_TIMEOUT_MS),
-  });
+  const request = async () => {
+    const res = await fetch(url, {
+      headers: { 'X-Api-Key': QLOO_API_KEY },
+      signal: AbortSignal.timeout(QLOO_TIMEOUT_MS),
+    });
+    return { status: res.status, ok: res.ok, data: res.ok ? await res.json() : null };
+  };
   try {
     return await request();
   } catch (firstErr) {
@@ -68,12 +72,11 @@ async function qlooGet(path, params) {
   const hit = cache.get(url);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
 
-  const res = await fetchWithRetry(url);
+  const { status, ok, data } = await fetchWithRetry(url);
   // Qloo answers "no results" with a 404; treat that as an empty list, not a failure.
-  if (res.status === 404) return { results: [] };
-  if (!res.ok) throw new QlooError(res.status, `Qloo returned ${res.status} for ${path}`);
+  if (status === 404) return { results: [] };
+  if (!ok) throw new QlooError(status, `Qloo returned ${status} for ${path}`);
 
-  const data = await res.json();
   cache.set(url, { at: Date.now(), data });
   return data;
 }
