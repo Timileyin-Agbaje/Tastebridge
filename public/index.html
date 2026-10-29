@@ -626,9 +626,11 @@
       let timer = null;
       let options = [];
       let active = -1;
+      let requestId = 0; // bumped by every load and close, so a late answer can't reopen the list
 
       function close() {
         clearTimeout(timer);
+        requestId += 1;
         options = [];
         active = -1;
         listEl.hidden = true;
@@ -678,18 +680,24 @@
 
       async function load(query) {
         if (suggestCache.has(query)) return showOptions(suggestCache.get(query));
+        const id = ++requestId;
+        // Only the newest request, for the text still in the box, may update the list.
+        const current = () => id === requestId && input.value.trim() === query;
         showStatus('Searching…');
         try {
           const { suggestions } = await getJson(`/api/suggest?q=${encodeURIComponent(query)}`);
           suggestCache.set(query, suggestions);
-          if (input.value.trim() === query) showOptions(suggestions); // ignore answers to older keystrokes
+          if (current()) showOptions(suggestions);
         } catch {
-          if (input.value.trim() === query) showStatus('Suggestions are unavailable. Press Enter to add it anyway.');
+          if (current()) showStatus('Suggestions are unavailable. Press Enter to add it anyway.');
         }
       }
 
       input.addEventListener('input', () => {
         clearTimeout(timer);
+        // The visible suggestions are for older text: Enter must not pick one of them by keyboard.
+        options = [];
+        highlight(-1);
         const query = input.value.trim();
         if (query.length < SUGGEST_MIN_CHARS) return close();
         timer = setTimeout(() => load(query), SUGGEST_DELAY_MS);
@@ -739,8 +747,10 @@
     function addLike(member, like) {
       const text = like.text.replace(/,/g, ' ').trim();
       if (!text || member.likes.length >= MAX_LIKES) return;
-      const duplicate = member.likes.some((existing) => (like.entity && existing.entity?.id === like.entity.id)
-        || existing.text.toLowerCase() === text.toLowerCase());
+      // Two picked entities are the same like only if their IDs match: the film and the book "Dune" are both welcome.
+      const duplicate = member.likes.some((existing) => (like.entity && existing.entity
+        ? existing.entity.id === like.entity.id
+        : existing.text.toLowerCase() === text.toLowerCase()));
       if (duplicate) return;
       member.likes.push({ ...like, text });
     }
