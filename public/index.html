@@ -95,6 +95,8 @@
     h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; letter-spacing: 0.01em; }
 
     section + section { margin-top: 28px; }
+    .group-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; transition: opacity 200ms ease; }
+    .group-fieldset:disabled { opacity: 0.6; }
 
     /* Member cards */
     .members { display: grid; gap: 12px; }
@@ -347,6 +349,7 @@
     </header>
 
     <form id="group-form" novalidate>
+      <fieldset class="group-fieldset" id="group-fieldset">
       <section aria-labelledby="who-heading">
         <h2 id="who-heading">Who's coming?</h2>
         <div class="members" id="members"></div>
@@ -361,6 +364,7 @@
           <label class="seg"><input type="radio" name="category" value="things_to_do" /><span>Things to do</span></label>
         </div>
       </section>
+      </fieldset>
 
       <div class="actions">
         <button type="submit" class="btn btn-primary" id="find">Find our spot</button>
@@ -385,7 +389,7 @@
           <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
         <div class="proof-panel" id="proof-panel" hidden>
-          <p class="proof-intro">Same people, same scoring. Only the way the places are chosen changes. Each number is the least-happy person’s average match across that list’s 5 places.</p>
+          <p class="proof-intro">Same people, same scoring. Only the way the places are chosen changes. Each number is the least-happy person’s average match across that list.</p>
           <div id="proof-body" aria-live="polite"></div>
         </div>
       </div>
@@ -418,6 +422,7 @@
     };
 
     const membersEl = document.getElementById('members');
+    const groupFieldset = document.getElementById('group-fieldset');
     const addPersonBtn = document.getElementById('add-person');
     const form = document.getElementById('group-form');
     const findBtn = document.getElementById('find');
@@ -514,12 +519,12 @@
       likeInput.setAttribute('autocorrect', 'off');
       // Inside a form, Enter would submit the whole group; "next" should move to this person's likes.
       nameInput.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter') return;
+        if (event.key !== 'Enter' || isComposing(event)) return;
         event.preventDefault();
         if (!likeInput.hidden) likeInput.focus();
       });
       likeInput.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter' && event.key !== ',') return;
+        if ((event.key !== 'Enter' && event.key !== ',') || isComposing(event)) return;
         event.preventDefault();
         addLike(member, likeInput.value);
         likeInput.value = '';
@@ -540,6 +545,12 @@
         likesEl,
         likeInput,
       ]);
+    }
+
+    // Enter that confirms a Chinese/Japanese IME candidate isn't "done typing".
+    // keyCode 229 covers browsers that don't set isComposing on that keydown.
+    function isComposing(event) {
+      return event.isComposing || event.keyCode === 229;
     }
 
     function addLike(member, text) {
@@ -585,6 +596,7 @@
 
     function setBusy(isBusy) {
       busy = isBusy;
+      groupFieldset.disabled = isBusy; // no edits to the group while its search is running
       findBtn.disabled = isBusy;
       demoBtn.disabled = isBusy;
       findBtn.textContent = isBusy ? 'Finding your spot…' : 'Find our spot';
@@ -607,13 +619,17 @@
       let done = total - pending.length;
       setStep('resolve', 'active', `${done} of ${total}`);
 
-      await Promise.all(pending.map(async (like) => {
+      // allSettled, not all: on a failure we still wait for the rest, so no late response
+      // can touch the progress after this run has ended.
+      const results = await Promise.allSettled(pending.map(async (like) => {
         const { entity } = await getJson(`/api/resolve?q=${encodeURIComponent(like.text)}`);
         like.entity = entity;
         like.status = entity ? 'found' : 'missing';
         done += 1;
         setStep('resolve', 'active', `${done} of ${total}`);
       }));
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw failure.reason;
 
       const found = members.flatMap((m) => m.likes).filter((like) => like.status === 'found').length;
       setStep('resolve', 'done', `${found} of ${total} recognised`);
@@ -647,10 +663,12 @@
 
         setStep('combine', 'active');
         const category = form.elements.category.value;
-        const group = members.map((m, i) => ({
+        // A snapshot: results render from what was sent, not from the live (editable) members.
+        const snapshot = members.map((m, i) => ({
           name: displayName(m, i),
-          entityIds: m.likes.filter((like) => like.status === 'found').map((like) => like.entity.id),
+          likedEntities: m.likes.filter((like) => like.status === 'found').map((like) => like.entity),
         }));
+        const group = snapshot.map((m) => ({ name: m.name, entityIds: m.likedEntities.map((e) => e.id) }));
         const { candidateCount, picks } = await getJson('/api/recommend', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -664,7 +682,7 @@
           setStep('combine', 'done', `${candidateCount} ${plural(candidateCount, 'place', 'places')} shortlisted`);
           setStep('score', 'done', `${candidateCount * group.length} scores checked`);
         }
-        lastRun = { category, members: group, picks };
+        lastRun = { category, members: group, likedEntities: snapshot.map((m) => m.likedEntities), picks };
         renderResults(picks);
       } catch (err) {
         for (const step of progressEl.querySelectorAll('[data-state="active"]')) step.dataset.state = 'pending';
@@ -676,11 +694,9 @@
 
     // ---------- Results ----------
 
-    function sharedTagNames(member, pick) {
+    function sharedTagNames(likedEntities, pick) {
       const likeTagNames = new Set(
-        member.likes
-          .filter((like) => like.status === 'found')
-          .flatMap((like) => like.entity.tags.map((tag) => tag.name.trim().toLowerCase())),
+        likedEntities.flatMap((entity) => entity.tags.map((tag) => tag.name.trim().toLowerCase())),
       );
       const names = pick.tags
         .map((tag) => tag.name.trim())
@@ -713,7 +729,7 @@
     function renderPick(pick, index) {
       const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.affinity));
       const rows = pick.scores.map((score, i) => {
-        const shared = sharedTagNames(members[i], pick);
+        const shared = sharedTagNames(lastRun.likedEntities[i], pick);
         return el('li', { className: 'score-row' }, [
           el('span', { className: 'score-name' }, [
             score.member,
@@ -782,7 +798,7 @@
         el('div', { className: 'bar', role: 'presentation' },
           el('div', { className: 'bar-fill', style: `--v: ${worst ? barValue(worst.affinity) : 0}` })),
         el('span', { className: 'strategy-note' }, worst
-          ? `${note} Least happy: ${worst.member}.`
+          ? `${note} Least happy across ${picks.length} ${plural(picks.length, 'place', 'places')}: ${worst.member}.`
           : `${note} Qloo found no places for this list.`),
       ]);
     }
