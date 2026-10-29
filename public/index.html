@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#faf6f1" />
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#15120f" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="Find a place your whole group will genuinely enjoy. Qloo blends everyone's taste, then checks every pick against every person." />
+  <title>TasteBridge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #faf6f1;
+      --surface: #ffffff;
+      --surface-2: #f3ede6;
+      --ink: #1f1b16;
+      --muted: #6b6259;
+      --line: rgba(31, 27, 22, 0.1);
+      --accent: #c2410c;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(194, 65, 12, 0.1);
+      --track: rgba(31, 27, 22, 0.08);
+      --danger: #b42318;
+      --shadow: 0 1px 2px rgba(31, 27, 22, 0.04), 0 4px 16px rgba(31, 27, 22, 0.06);
+      --radius: 16px;
+      --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+      --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --display: "Fraunces", Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #15120f;
+        --surface: #1e1a16;
+        --surface-2: #27221d;
+        --ink: #f3eee8;
+        --muted: #a39a90;
+        --line: rgba(243, 238, 232, 0.1);
+        --accent: #ff8a50;
+        --accent-ink: #1a0d05;
+        --accent-soft: rgba(255, 138, 80, 0.14);
+        --track: rgba(243, 238, 232, 0.1);
+        --danger: #ff8a80;
+        --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html {
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.5 var(--font);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; color: inherit; }
+    input { font-size: 16px; } /* below 16px, iOS zooms the page on focus */
+    button, [role="button"], label.seg {
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      cursor: pointer;
+    }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    .page {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: calc(24px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-right, 0px))
+        calc(48px + env(safe-area-inset-bottom, 0px)) calc(16px + env(safe-area-inset-left, 0px));
+    }
+
+    header { margin-bottom: 28px; }
+    .brand-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .wordmark { font-family: var(--display); font-weight: 600; font-size: 20px; letter-spacing: -0.01em; }
+    .wordmark span { color: var(--accent); }
+    .city {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--muted);
+      padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px;
+    }
+    h1 {
+      font-family: var(--display); font-weight: 600;
+      font-size: clamp(34px, 9vw, 48px); line-height: 1.05; letter-spacing: -0.02em;
+      margin: 14px 0 10px;
+    }
+    .lede { color: var(--muted); margin: 0; max-width: 34em; }
+    h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; letter-spacing: 0.01em; }
+
+    section + section { margin-top: 28px; }
+
+    /* Member cards */
+    .members { display: grid; gap: 12px; }
+    .member {
+      min-width: 0; /* inputs have an intrinsic width that would otherwise widen the card past a 320px screen */
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+    .member-head { display: flex; align-items: center; gap: 8px; }
+    .avatar {
+      flex-shrink: 0;
+      width: 36px; height: 36px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--accent-soft); color: var(--accent);
+      font-weight: 600; font-size: 14px;
+    }
+    .name-input {
+      flex: 1; min-width: 0;
+      border: 0; background: transparent; padding: 6px 4px;
+      font-weight: 600;
+    }
+    .name-input:focus-visible { outline-offset: 0; border-radius: 8px; }
+    .icon-btn {
+      flex-shrink: 0;
+      width: 40px; height: 40px; border-radius: 10px;
+      border: 0; background: transparent; color: var(--muted);
+      display: grid; place-items: center;
+      transition: transform 140ms var(--ease-out), background-color 140ms ease;
+    }
+    .icon-btn:active { transform: scale(0.96); background: var(--surface-2); }
+
+    .likes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .likes:empty { display: none; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 2px;
+      min-width: 0; max-width: 100%;
+      padding: 4px 4px 4px 12px; border-radius: 999px;
+      background: var(--surface-2); font-size: 14px;
+    }
+    .chip-text { min-width: 0; overflow-wrap: anywhere; }
+    .chip small { color: var(--muted); margin-left: 4px; }
+    .chip.missing { color: var(--muted); }
+    .chip.missing .chip-text { text-decoration: line-through; text-decoration-color: var(--danger); }
+    .chip.missing small { color: var(--danger); }
+    .chip.found { background: var(--accent-soft); }
+    .chip .icon-btn { position: relative; width: 28px; height: 28px; border-radius: 999px; }
+    .chip .icon-btn::after { content: ""; position: absolute; inset: -8px; } /* ~44px tap target */
+    .like-input {
+      width: 100%;
+      margin-top: 12px; padding: 10px 12px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--bg);
+    }
+    .like-input::placeholder, .name-input::placeholder { color: var(--muted); opacity: 0.8; }
+    .like-input[hidden] { display: none; }
+
+    .add-person {
+      width: 100%; margin-top: 12px; padding: 12px;
+      border: 1px dashed var(--line); border-radius: var(--radius);
+      background: transparent; color: var(--muted); font-weight: 500;
+      transition: transform 140ms var(--ease-out), border-color 140ms ease, color 140ms ease;
+    }
+    .add-person:active { transform: scale(0.98); }
+    .add-person:disabled { opacity: 0.5; cursor: default; transform: none; }
+
+    /* Category picker */
+    .segments {
+      display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px;
+      padding: 4px; border-radius: 14px; background: var(--surface-2);
+    }
+    .seg input { position: absolute; opacity: 0; pointer-events: none; }
+    .seg span {
+      display: block; text-align: center; padding: 10px 6px; border-radius: 10px;
+      font-size: 14px; font-weight: 500; color: var(--muted);
+      transition: background-color 160ms ease, color 160ms ease, transform 140ms var(--ease-out);
+    }
+    .seg:active span { transform: scale(0.97); }
+    .seg input:checked + span { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+    .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Actions */
+    .actions { display: grid; gap: 10px; margin-top: 24px; }
+    .btn {
+      min-height: 52px; padding: 14px 20px; border-radius: 14px;
+      border: 0; font-weight: 600;
+      transition: transform 160ms var(--ease-out), opacity 160ms ease;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.55; cursor: progress; transform: none; }
+    .btn-primary { background: var(--accent); color: var(--accent-ink); }
+    .btn-secondary { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+
+    .error {
+      margin-top: 14px; padding: 12px 14px; border-radius: 12px;
+      background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger);
+      font-size: 14px;
+    }
+    .error:empty { display: none; }
+
+    /* Progress */
+    .progress { list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 10px; }
+    .progress[hidden] { display: none; }
+    .step { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); font-size: 15px; }
+    .step-dot {
+      flex-shrink: 0; margin-top: 3px;
+      width: 18px; height: 18px; border-radius: 50%;
+      border: 2px solid var(--line);
+      transition: background-color 200ms ease, border-color 200ms ease;
+    }
+    .step[data-state="active"] { color: var(--ink); }
+    .step[data-state="active"] .step-dot {
+      border-color: var(--accent); border-right-color: transparent;
+      animation: spin 700ms linear infinite;
+    }
+    .step[data-state="done"] { color: var(--ink); }
+    .step[data-state="done"] .step-dot {
+      border-color: var(--accent); background: var(--accent);
+      box-shadow: inset 0 0 0 3px var(--bg);
+    }
+    .step-detail { color: var(--muted); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Results */
+    .results { margin-top: 32px; }
+    .results h2 {
+      font-family: var(--display); font-weight: 600;
+      font-size: 26px; line-height: 1.15; letter-spacing: -0.01em; margin-bottom: 8px;
+    }
+    .results[hidden] { display: none; }
+    .results-intro { color: var(--muted); margin: -4px 0 16px; font-size: 15px; }
+    .picks { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+    .pick {
+      background: var(--surface);
+      border: 1px solid var(--line); border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out);
+      transition-delay: calc(var(--i, 0) * 50ms);
+      @starting-style { opacity: 0; transform: translateY(8px); }
+    }
+    .pick-head { display: flex; gap: 12px; align-items: flex-start; }
+    .rank {
+      flex-shrink: 0;
+      width: 30px; height: 30px; border-radius: 50%;
+      display: grid; place-items: center;
+      background: var(--ink); color: var(--bg);
+      font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums;
+    }
+    .pick-title { min-width: 0; }
+    .pick h3 {
+      font-family: var(--display); font-weight: 600;
+      font-size: 21px; line-height: 1.2; margin: 2px 0 2px; overflow-wrap: anywhere;
+    }
+    .address { color: var(--muted); font-size: 14px; margin: 0; overflow-wrap: anywhere; }
+    .why { margin: 12px 0 14px; font-size: 15px; }
+    .scores { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 12px; }
+    .score-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
+    .score-name { font-weight: 600; font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
+    .score-name em {
+      font-style: normal; font-weight: 500; font-size: 12px; color: var(--accent);
+      margin-left: 6px; white-space: nowrap;
+    }
+    .score-pct { font-variant-numeric: tabular-nums; font-weight: 600; font-size: 15px; }
+    .bar { grid-column: 1 / -1; height: 8px; border-radius: 999px; background: var(--track); overflow: hidden; }
+    .bar-fill {
+      height: 100%; border-radius: inherit; background: var(--accent);
+      transform-origin: left; transform: scaleX(var(--v));
+      transition: transform 300ms var(--ease-out);
+      transition-delay: calc(var(--i, 0) * 50ms + 120ms);
+      @starting-style { transform: scaleX(0); }
+    }
+    .shared { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+    .empty {
+      padding: 20px; border-radius: var(--radius); border: 1px dashed var(--line);
+      color: var(--muted); text-align: center;
+    }
+    .edit-group { margin-top: 16px; width: 100%; }
+
+    @media (hover: hover) and (pointer: fine) {
+      .icon-btn:hover { background: var(--surface-2); color: var(--ink); }
+      .add-person:hover:not(:disabled) { border-color: var(--muted); color: var(--ink); }
+      .seg:hover input:not(:checked) + span { color: var(--ink); }
+      .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
+      .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pick { transform: none; transition: opacity 200ms ease; @starting-style { transform: none; } }
+      .bar-fill { transition: none; }
+      .step[data-state="active"] .step-dot { animation-duration: 2s; }
+      .btn:active, .icon-btn:active, .add-person:active, .seg:active span { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <div class="brand-row">
+        <span class="wordmark">Taste<span>Bridge</span></span>
+        <span class="city">📍 New York City</span>
+      </div>
+      <h1>Find a spot the whole group will love.</h1>
+      <p class="lede">Add everyone's favourite artists, films, books, or brands. Qloo blends your tastes into one shortlist, then checks every place against every person so nobody gets left out.</p>
+    </header>
+
+    <form id="group-form" novalidate>
+      <section aria-labelledby="who-heading">
+        <h2 id="who-heading">Who's coming?</h2>
+        <div class="members" id="members"></div>
+        <button type="button" class="add-person" id="add-person">+ Add a person</button>
+      </section>
+
+      <section aria-labelledby="what-heading">
+        <h2 id="what-heading">Looking for</h2>
+        <div class="segments" role="radiogroup" aria-labelledby="what-heading">
+          <label class="seg"><input type="radio" name="category" value="restaurants" checked /><span>Restaurants</span></label>
+          <label class="seg"><input type="radio" name="category" value="bars" /><span>Bars</span></label>
+          <label class="seg"><input type="radio" name="category" value="things_to_do" /><span>Things to do</span></label>
+        </div>
+      </section>
+
+      <div class="actions">
+        <button type="submit" class="btn btn-primary" id="find">Find our spot</button>
+        <button type="button" class="btn btn-secondary" id="demo">Try a demo group</button>
+      </div>
+      <div class="error" id="error" role="alert"></div>
+    </form>
+
+    <ol class="progress" id="progress" aria-live="polite" hidden>
+      <li class="step" data-step="resolve"><span class="step-dot"></span><span>Reading everyone's likes <span class="step-detail"></span></span></li>
+      <li class="step" data-step="combine"><span class="step-dot"></span><span>Blending tastes into a shortlist <span class="step-detail"></span></span></li>
+      <li class="step" data-step="score"><span class="step-dot"></span><span>Scoring every place for every person <span class="step-detail"></span></span></li>
+    </ol>
+
+    <section class="results" id="results" aria-labelledby="results-heading" hidden>
+      <h2 id="results-heading">Your shortlist</h2>
+      <p class="results-intro">Ranked so the least-happy person is as happy as possible.</p>
+      <ol class="picks" id="picks"></ol>
+      <button type="button" class="btn btn-secondary edit-group" id="edit-group">Change the group</button>
+    </section>
+  </main>
+
+  <script>
+    const MIN_MEMBERS = 2;
+    const MAX_MEMBERS = 5;
+    const MAX_LIKES = 4;
+    const MAX_SHARED_TAGS = 3;
+    // Qloo affinities cluster between ~0.75 and 0.95, so a 0–1 bar would make everyone look the same.
+    const BAR_FLOOR = 0.6;
+
+    const DEMO_GROUP = {
+      category: 'restaurants',
+      members: [
+        { name: 'Maya', likes: ['Radiohead', 'The Grand Budapest Hotel', 'Patagonia'] },
+        { name: 'Dre', likes: ['Drake', 'Fast & Furious', 'Nike'] },
+        { name: 'June', likes: ['Taylor Swift', 'Pride and Prejudice', 'Gilmore Girls'] },
+      ],
+    };
+
+    const TYPE_LABELS = {
+      'urn:entity:artist': 'artist', 'urn:entity:book': 'book', 'urn:entity:brand': 'brand',
+      'urn:entity:destination': 'destination', 'urn:entity:movie': 'film', 'urn:entity:person': 'person',
+      'urn:entity:place': 'place', 'urn:entity:podcast': 'podcast', 'urn:entity:tv_show': 'TV show',
+      'urn:entity:videogame': 'game',
+    };
+
+    const membersEl = document.getElementById('members');
+    const addPersonBtn = document.getElementById('add-person');
+    const form = document.getElementById('group-form');
+    const findBtn = document.getElementById('find');
+    const demoBtn = document.getElementById('demo');
+    const errorEl = document.getElementById('error');
+    const progressEl = document.getElementById('progress');
+    const resultsEl = document.getElementById('results');
+    const picksEl = document.getElementById('picks');
+
+    // Each like: { text, status: 'new' | 'found' | 'missing', entity }
+    let members = [newMember(), newMember()];
+    let busy = false;
+
+    function newMember(name = '', likes = []) {
+      return { name, likes: likes.map((text) => ({ text, status: 'new', entity: null })) };
+    }
+
+    // Builds an element; strings become text nodes, so user input is never parsed as HTML.
+    function el(tag, props = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [key, value] of Object.entries(props)) {
+        if (key === 'style') node.style.cssText = value;
+        else if (key in node) node[key] = value;
+        else node.setAttribute(key, value);
+      }
+      for (const child of [].concat(children)) {
+        if (child != null) node.append(child);
+      }
+      return node;
+    }
+
+    // Letters only, so "🦊 Fox" gives "F" and "Christopher Montgomery III" gives "CM", not "CI".
+    function initials(name) {
+      const words = name.trim().split(/\s+/)
+        .filter((word) => /^[\p{L}\p{N}]/u.test(word) && !/^(jr|sr|ii|iii|iv)\.?$/i.test(word));
+      if (words.length === 0) return '?';
+      const first = Array.from(words[0])[0];
+      const last = words.length > 1 ? Array.from(words[words.length - 1])[0] : '';
+      return (first + last).toUpperCase();
+    }
+
+    const pluralRules = new Intl.PluralRules('en');
+    function plural(count, one, other) {
+      return pluralRules.select(count) === 'one' ? one : other;
+    }
+
+    function displayName(member, index) {
+      return member.name.trim() || `Person ${index + 1}`;
+    }
+
+    // ---------- Member editing ----------
+
+    function renderMembers() {
+      membersEl.replaceChildren(...members.map(renderMember));
+      addPersonBtn.disabled = members.length >= MAX_MEMBERS;
+    }
+
+    function renderMember(member, index) {
+      const avatar = el('span', { className: 'avatar', 'aria-hidden': 'true' }, initials(displayName(member, index)));
+      const nameInput = el('input', {
+        className: 'name-input', value: member.name, placeholder: `Person ${index + 1}`,
+        autocomplete: 'off', autocapitalize: 'words', enterKeyHint: 'next', maxLength: 40,
+        'aria-label': `Name of person ${index + 1}`,
+      });
+      nameInput.addEventListener('input', () => {
+        member.name = nameInput.value;
+        avatar.textContent = initials(displayName(member, index));
+      });
+
+      const removeBtn = members.length > MIN_MEMBERS
+        ? el('button', { type: 'button', className: 'icon-btn', 'aria-label': `Remove ${displayName(member, index)}` }, '✕')
+        : null;
+      removeBtn?.addEventListener('click', () => {
+        members.splice(index, 1);
+        renderMembers();
+      });
+
+      const likesEl = el('div', { className: 'likes' });
+      const likeInput = el('input', {
+        className: 'like-input', placeholder: 'Add a like: artist, film, book, brand…',
+        autocomplete: 'off', autocapitalize: 'words', spellcheck: false,
+        enterKeyHint: 'done', maxLength: 100,
+        'aria-label': `Add something ${displayName(member, index)} likes`,
+      });
+      // Set as an attribute: some browsers expose a boolean `autocorrect` property where 'off' would read as true.
+      likeInput.setAttribute('autocorrect', 'off');
+      // Inside a form, Enter would submit the whole group; "next" should move to this person's likes.
+      nameInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        if (!likeInput.hidden) likeInput.focus();
+      });
+      likeInput.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ',') return;
+        event.preventDefault();
+        addLike(member, likeInput.value);
+        likeInput.value = '';
+        renderLikes(member, likesEl, likeInput);
+        likeInput.focus();
+      });
+      // Typing a like and then tapping away shouldn't lose it.
+      likeInput.addEventListener('blur', () => {
+        if (!likeInput.value.trim()) return;
+        addLike(member, likeInput.value);
+        likeInput.value = '';
+        renderLikes(member, likesEl, likeInput);
+      });
+      renderLikes(member, likesEl, likeInput);
+
+      return el('div', { className: 'member' }, [
+        el('div', { className: 'member-head' }, [avatar, nameInput, removeBtn]),
+        likesEl,
+        likeInput,
+      ]);
+    }
+
+    function addLike(member, text) {
+      const clean = text.replace(/,/g, ' ').trim();
+      if (!clean || member.likes.length >= MAX_LIKES) return;
+      if (member.likes.some((like) => like.text.toLowerCase() === clean.toLowerCase())) return;
+      member.likes.push({ text: clean, status: 'new', entity: null });
+    }
+
+    function renderLikes(member, likesEl, likeInput) {
+      likesEl.replaceChildren(...member.likes.map((like, i) => {
+        const removeBtn = el('button', { type: 'button', className: 'icon-btn', 'aria-label': `Remove ${like.text}` }, '✕');
+        removeBtn.addEventListener('click', () => {
+          member.likes.splice(i, 1);
+          renderLikes(member, likesEl, likeInput);
+        });
+        let note = null;
+        if (like.status === 'missing') note = el('small', {}, 'not found');
+        if (like.status === 'found') note = el('small', {}, TYPE_LABELS[like.entity.type] ?? '');
+        const label = like.status === 'found' ? like.entity.name : like.text;
+        return el('span', { className: `chip ${like.status}`, title: like.text }, [
+          el('span', { className: 'chip-text' }, label), note, removeBtn,
+        ]);
+      }));
+      likeInput.hidden = member.likes.length >= MAX_LIKES;
+      likeInput.placeholder = member.likes.length === 0
+        ? 'Add a like: artist, film, book, brand…'
+        : `Add another (${MAX_LIKES - member.likes.length} left)`;
+    }
+
+    // ---------- Agent run ----------
+
+    function setStep(name, state, detail = '') {
+      const step = progressEl.querySelector(`[data-step="${name}"]`);
+      step.dataset.state = state;
+      step.querySelector('.step-detail').textContent = detail ? `· ${detail}` : '';
+    }
+
+    function resetProgress() {
+      for (const name of ['resolve', 'combine', 'score']) setStep(name, 'pending');
+      progressEl.hidden = false;
+    }
+
+    function setBusy(isBusy) {
+      busy = isBusy;
+      findBtn.disabled = isBusy;
+      demoBtn.disabled = isBusy;
+      findBtn.textContent = isBusy ? 'Finding your spot…' : 'Find our spot';
+    }
+
+    function showError(message) {
+      errorEl.textContent = message;
+    }
+
+    async function getJson(url, options) {
+      const res = await fetch(url, options);
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Something went wrong. Try again in a moment.');
+      return body;
+    }
+
+    async function resolveLikes() {
+      const pending = members.flatMap((m) => m.likes).filter((like) => like.status === 'new');
+      const total = members.reduce((sum, m) => sum + m.likes.length, 0);
+      let done = total - pending.length;
+      setStep('resolve', 'active', `${done} of ${total}`);
+
+      await Promise.all(pending.map(async (like) => {
+        const { entity } = await getJson(`/api/resolve?q=${encodeURIComponent(like.text)}`);
+        like.entity = entity;
+        like.status = entity ? 'found' : 'missing';
+        done += 1;
+        setStep('resolve', 'active', `${done} of ${total}`);
+      }));
+
+      const found = members.flatMap((m) => m.likes).filter((like) => like.status === 'found').length;
+      setStep('resolve', 'done', `${found} of ${total} recognised`);
+    }
+
+    function validateGroup() {
+      if (members.length < MIN_MEMBERS) return `Add at least ${MIN_MEMBERS} people.`;
+      const empty = members.findIndex((m) => m.likes.length === 0);
+      if (empty !== -1) return `Add at least one like for ${displayName(members[empty], empty)}.`;
+      return null;
+    }
+
+    async function findSpot() {
+      if (busy) return;
+      showError('');
+      const problem = validateGroup();
+      if (problem) return showError(problem);
+
+      setBusy(true);
+      resultsEl.hidden = true;
+      resetProgress();
+      try {
+        await resolveLikes();
+        renderMembers(); // show which likes were recognised
+
+        const unknown = members.findIndex((m) => !m.likes.some((like) => like.status === 'found'));
+        if (unknown !== -1) {
+          setStep('combine', 'pending');
+          return showError(`We couldn't recognise any of ${displayName(members[unknown], unknown)}'s likes. Try something better known.`);
+        }
+
+        setStep('combine', 'active');
+        const category = form.elements.category.value;
+        const group = members.map((m, i) => ({
+          name: displayName(m, i),
+          entityIds: m.likes.filter((like) => like.status === 'found').map((like) => like.entity.id),
+        }));
+        const { candidateCount, picks } = await getJson('/api/recommend', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, members: group }),
+        });
+
+        if (candidateCount === 0) {
+          setStep('combine', 'done', 'no places matched');
+          setStep('score', 'done', 'nothing to score');
+        } else {
+          setStep('combine', 'done', `${candidateCount} ${plural(candidateCount, 'place', 'places')} shortlisted`);
+          setStep('score', 'done', `${candidateCount * group.length} scores checked`);
+        }
+        renderResults(picks);
+      } catch (err) {
+        for (const step of progressEl.querySelectorAll('[data-state="active"]')) step.dataset.state = 'pending';
+        showError(err.message || 'Something went wrong. Try again in a moment.');
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    // ---------- Results ----------
+
+    function sharedTagNames(member, pick) {
+      const likeTagNames = new Set(
+        member.likes
+          .filter((like) => like.status === 'found')
+          .flatMap((like) => like.entity.tags.map((tag) => tag.name.trim().toLowerCase())),
+      );
+      const names = pick.tags
+        .map((tag) => tag.name.trim())
+        .filter((name) => likeTagNames.has(name.toLowerCase()));
+      return [...new Set(names)].slice(0, MAX_SHARED_TAGS);
+    }
+
+    function percent(affinity) {
+      return `${Math.round(affinity * 100)}%`;
+    }
+
+    function barValue(affinity) {
+      return Math.min(1, Math.max(0.04, (affinity - BAR_FLOOR) / (1 - BAR_FLOOR)));
+    }
+
+    // Under this spread nobody is meaningfully worse off, so there's no "lowest" to call out.
+    const EVEN_SPREAD = 0.03;
+
+    function isEvenMatch(pick) {
+      const affinities = pick.scores.map((s) => s.affinity);
+      return Math.max(...affinities) - Math.min(...affinities) < EVEN_SPREAD;
+    }
+
+    function whyLine(pick) {
+      if (isEvenMatch(pick)) return `An even match: everyone lands within a few points of each other.`;
+      const lowest = pick.scores.reduce((low, s) => (s.affinity < low.affinity ? s : low));
+      return `Even ${lowest.member}, the hardest to please here, comes in at ${percent(lowest.affinity)}.`;
+    }
+
+    function renderPick(pick, index) {
+      const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.affinity));
+      const rows = pick.scores.map((score, i) => {
+        const shared = sharedTagNames(members[i], pick);
+        return el('li', { className: 'score-row' }, [
+          el('span', { className: 'score-name' }, [
+            score.member,
+            score.affinity === lowest ? el('em', {}, 'lowest') : null,
+          ]),
+          el('span', { className: 'score-pct' }, percent(score.affinity)),
+          el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.affinity)}` })),
+          el('span', { className: 'shared' }, shared.length
+            ? `Shares: ${shared.join(', ')}`
+            : 'No direct tag overlap; matched through Qloo’s wider taste graph'),
+        ]);
+      });
+
+      return el('li', { className: 'pick', style: `--i: ${index}` }, [
+        el('div', { className: 'pick-head' }, [
+          el('span', { className: 'rank', 'aria-label': `Pick ${index + 1}` }, String(index + 1)),
+          el('div', { className: 'pick-title' }, [
+            el('h3', {}, pick.name),
+            pick.address ? el('p', { className: 'address' }, pick.address) : null,
+          ]),
+        ]),
+        el('p', { className: 'why' }, whyLine(pick)),
+        el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
+      ]);
+    }
+
+    function renderResults(picks) {
+      picksEl.replaceChildren(...(picks.length
+        ? picks.map(renderPick)
+        : [el('li', { className: 'empty' }, 'No places matched this group. Try another category or swap in a few different likes.')]));
+      resultsEl.hidden = false;
+      scrollToSection(resultsEl);
+    }
+
+    function scrollToSection(section) {
+      const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      section.scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+    }
+
+    // ---------- Wiring ----------
+
+    addPersonBtn.addEventListener('click', () => {
+      if (members.length >= MAX_MEMBERS) return;
+      members.push(newMember());
+      renderMembers();
+      membersEl.lastElementChild.querySelector('.name-input').focus();
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      findSpot();
+    });
+
+    demoBtn.addEventListener('click', () => {
+      members = DEMO_GROUP.members.map((m) => newMember(m.name, m.likes));
+      form.elements.category.value = DEMO_GROUP.category;
+      renderMembers();
+      findSpot();
+    });
+
+    document.getElementById('edit-group').addEventListener('click', () => {
+      scrollToSection(form);
+    });
+
+    renderMembers();
+  </script>
+</body>
+</html>

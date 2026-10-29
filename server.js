@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 
 const QLOO_BASE = 'https://hackathon.api.qloo.com';
@@ -5,6 +6,7 @@ const QLOO_API_KEY = process.env.QLOO_API_KEY;
 const PORT = process.env.PORT || 3000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const MAX_LIKE_LENGTH = 100;
+const MAX_NAME_LENGTH = 40; // matches the name input's maxlength
 const CITY = 'New York City'; // "New York" alone matches New York State
 const CANDIDATE_COUNT = 20;
 const PICK_COUNT = 5;
@@ -117,7 +119,8 @@ function toPick(place, members, memberAffinities) {
     id: place.entity_id,
     name: place.name,
     address: place.properties?.address ?? null,
-    tags: (place.tags ?? []).map((tag) => ({ id: tag.tag_id, name: tag.name })),
+    // Insights tags use `id`; search results (see toEntity) use `tag_id`.
+    tags: (place.tags ?? []).map((tag) => ({ id: tag.id, name: tag.name })),
     scores,
     lowestAffinity: Math.min(...affinities),
     averageAffinity: affinities.reduce((sum, a) => sum + a, 0) / affinities.length,
@@ -131,18 +134,19 @@ function byLeastMisery(a, b) {
 
 async function recommend(members, category) {
   const candidates = await findCandidates(members.flatMap((m) => m.entityIds), category);
-  if (candidates.length === 0) return [];
+  if (candidates.length === 0) return { candidateCount: 0, picks: [] };
 
   const candidateIds = candidates.map((place) => place.entity_id);
   const memberAffinities = await Promise.all(
     members.map((member) => scoreForMember(member, candidateIds)),
   );
 
-  return candidates
+  const picks = candidates
     .filter((place) => memberAffinities.every((scores) => scores.has(place.entity_id)))
     .map((place) => toPick(place, members, memberAffinities))
     .sort(byLeastMisery)
     .slice(0, PICK_COUNT);
+  return { candidateCount: candidates.length, picks };
 }
 
 // Returns an error message for the user, or null if the request is usable.
@@ -155,6 +159,7 @@ function validateRecommendRequest(body) {
   for (const member of members) {
     const name = typeof member?.name === 'string' ? member.name.trim() : '';
     if (!name) return 'Every person needs a name.';
+    if (name.length > MAX_NAME_LENGTH) return `Keep names under ${MAX_NAME_LENGTH} characters.`;
     const ids = member.entityIds;
     if (!Array.isArray(ids) || ids.length === 0) return `We couldn't recognise any of ${name}'s likes.`;
     if (ids.length > MAX_LIKES_PER_MEMBER) return `${name} has more than ${MAX_LIKES_PER_MEMBER} likes.`;
@@ -165,6 +170,7 @@ function validateRecommendRequest(body) {
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/resolve', async (req, res) => {
   const query = String(req.query.q ?? '').trim();
@@ -187,7 +193,7 @@ app.post('/api/recommend', async (req, res) => {
 
   const members = req.body.members.map((m) => ({ name: m.name.trim(), entityIds: m.entityIds }));
   try {
-    res.json({ picks: await recommend(members, req.body.category) });
+    res.json(await recommend(members, req.body.category));
   } catch (err) {
     console.error(err.message);
     res.status(502).json({ error: "We couldn't reach our taste engine. Try again in a moment." });
