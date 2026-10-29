@@ -322,7 +322,12 @@
       transition-delay: calc(var(--i, 0) * 50ms + 120ms);
       @starting-style { transform: scaleX(0); }
     }
-    .shared { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+    .shared { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    .common {
+      margin: -4px 0 14px; padding: 8px 12px; border-radius: 10px;
+      background: var(--accent-soft); font-size: 14px; overflow-wrap: anywhere;
+    }
+    .common strong { color: var(--accent); font-weight: 600; }
     .empty {
       padding: 20px; border-radius: var(--radius); border: 1px dashed var(--line);
       color: var(--muted); text-align: center;
@@ -880,14 +885,48 @@
 
     // ---------- Results ----------
 
-    function sharedTagNames(likedEntities, pick) {
-      const likeTagNames = new Set(
-        likedEntities.flatMap((entity) => entity.tags.map((tag) => tag.name.trim().toLowerCase())),
-      );
-      const names = pick.tags
-        .map((tag) => tag.name.trim())
-        .filter((name) => likeTagNames.has(name.toLowerCase()));
-      return [...new Set(names)].slice(0, MAX_SHARED_TAGS);
+    // Only a place's vibe says something about taste. Its offerings and amenities ("Food", "Elevator")
+    // matched like keywords ("Wine", "Hotel") in the demo data and explained nothing.
+    const PLACE_VIBE_TAG_PREFIXES = [
+      'urn:tag:ambience:', 'urn:tag:decor:', 'urn:tag:setting:', 'urn:tag:style:', 'urn:tag:culinary_style:',
+    ];
+    const LIKE_KEYWORD_TAG_PREFIX = 'urn:tag:keyword:';
+
+    // lowercased name → display name, for the place's vibe tags.
+    function placeVibes(pick) {
+      return new Map(pick.tags
+        .filter((tag) => PLACE_VIBE_TAG_PREFIXES.some((prefix) => tag.id?.startsWith(prefix)))
+        .map((tag) => [tag.name.trim().toLowerCase(), tag.name.trim()]));
+    }
+
+    // For each of one person's likes, the place vibes it shares: [{ like, vibes }], strongest first.
+    function likeMatches(likedEntities, vibes) {
+      return likedEntities
+        .map((entity) => {
+          const names = entity.tags
+            .filter((tag) => !tag.id?.startsWith(LIKE_KEYWORD_TAG_PREFIX))
+            .map((tag) => tag.name.trim().toLowerCase())
+            .filter((name) => vibes.has(name));
+          return { like: entity.name, vibes: [...new Set(names)] };
+        })
+        .filter((match) => match.vibes.length > 0)
+        .sort((a, b) => b.vibes.length - a.vibes.length);
+    }
+
+    // "Because of Radiohead: atmospheric, eclectic", or null when nothing real connects them.
+    function reasonFor(matches) {
+      const [best] = matches;
+      if (!best) return null;
+      return `Because of ${best.like}: ${best.vibes.slice(0, MAX_SHARED_TAGS).join(', ')}`;
+    }
+
+    // Vibes that match at least one like for every person: the bridge between their tastes.
+    function commonGround(memberMatches, vibes) {
+      const perMember = memberMatches.map((matches) => new Set(matches.flatMap((m) => m.vibes)));
+      return [...perMember[0] ?? []]
+        .filter((name) => perMember.every((set) => set.has(name)))
+        .map((name) => vibes.get(name))
+        .slice(0, MAX_SHARED_TAGS);
     }
 
     function percent(affinity) {
@@ -914,8 +953,11 @@
 
     function renderPick(pick, index) {
       const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.affinity));
+      const vibes = placeVibes(pick);
+      const memberMatches = lastRun.likedEntities.map((likedEntities) => likeMatches(likedEntities, vibes));
+      const common = commonGround(memberMatches, vibes);
       const rows = pick.scores.map((score, i) => {
-        const shared = sharedTagNames(lastRun.likedEntities[i], pick);
+        const reason = reasonFor(memberMatches[i]);
         return el('li', { className: 'score-row' }, [
           el('span', { className: 'score-name' }, [
             score.member,
@@ -923,9 +965,7 @@
           ]),
           el('span', { className: 'score-pct' }, percent(score.affinity)),
           el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.affinity)}` })),
-          el('span', { className: 'shared' }, shared.length
-            ? `Shares: ${shared.join(', ')}`
-            : 'No direct tag overlap; matched through Qloo’s wider taste graph'),
+          reason ? el('span', { className: 'shared' }, reason) : null,
         ]);
       });
 
@@ -939,6 +979,7 @@
           pick.description ? el('p', { className: 'desc' }, pick.description) : null,
           renderLinks(pick),
           el('p', { className: 'why' }, whyLine(pick)),
+          common.length ? el('p', { className: 'common' }, [el('strong', {}, 'Common ground: '), common.join(', ')]) : null,
           el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
         ]),
       ]);
