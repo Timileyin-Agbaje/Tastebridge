@@ -5,6 +5,7 @@ const QLOO_BASE = 'https://hackathon.api.qloo.com';
 const QLOO_API_KEY = process.env.QLOO_API_KEY;
 const PORT = process.env.PORT || 3000;
 const CACHE_TTL_MS = 10 * 60 * 1000;
+const QLOO_TIMEOUT_MS = 10 * 1000;
 const MAX_LIKE_LENGTH = 100;
 const MAX_NAME_LENGTH = 40; // matches the name input's maxlength
 const CITY = 'New York City'; // "New York" alone matches New York State
@@ -43,15 +44,19 @@ class QlooError extends Error {
 // Cached by URL so repeated demo runs during judging don't burn the rate limit.
 const cache = new Map();
 
-// Qloo occasionally drops a connection ("fetch failed"); one retry hides that from the user.
+// Qloo occasionally drops a connection ("fetch failed") or hangs; one retry hides that from the user.
+// The timeout keeps a hung call from holding the spinner until Vercel kills the function.
 async function fetchWithRetry(url) {
-  const options = { headers: { 'X-Api-Key': QLOO_API_KEY } };
+  const request = () => fetch(url, {
+    headers: { 'X-Api-Key': QLOO_API_KEY },
+    signal: AbortSignal.timeout(QLOO_TIMEOUT_MS),
+  });
   try {
-    return await fetch(url, options);
+    return await request();
   } catch (firstErr) {
-    console.warn(`Retrying Qloo after network error: ${firstErr.cause?.code ?? firstErr.message}`);
+    console.warn(`Retrying Qloo after network error: ${firstErr.cause?.code ?? firstErr.name}`);
     try {
-      return await fetch(url, options);
+      return await request();
     } catch (err) {
       throw new QlooError(502, `Could not reach Qloo: ${err.cause?.code ?? err.message}`);
     }
