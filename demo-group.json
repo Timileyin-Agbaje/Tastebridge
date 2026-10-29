@@ -2,42 +2,42 @@
   "category": "restaurants",
   "members": [
     {
-      "name": "Maya",
+      "name": "Sam",
       "likes": [
-        "Radiohead",
-        "The Grand Budapest Hotel",
-        "Patagonia"
+        "Anthony Bourdain",
+        "Chef's Table",
+        "The Bear"
       ],
       "entityIds": [
-        "70CAE5BF-2F4C-445C-A3E5-4EDACFC3591C",
-        "DF788007-B5EA-4F29-872B-96BCB8EEC42F",
-        "DB4CE34E-3A63-4947-946F-9D52502C5762"
+        "A7C09282-07B4-4101-8B58-64D96FDC1333",
+        "35D9EDC3-DC6A-42A5-B73B-7A18DCF0C024",
+        "4C305B2F-5A46-4885-A6DA-5E22D11E86E0"
       ]
     },
     {
-      "name": "Dre",
+      "name": "Nia",
       "likes": [
-        "Drake",
-        "Fast & Furious",
-        "Nike"
+        "SZA",
+        "Insecure",
+        "Telfar"
       ],
       "entityIds": [
-        "088C8322-5E1F-4D2E-99D3-5133AD16BABE",
-        "F01AC034-179A-47F3-8ADF-7A4D77559DCF",
-        "C70CE2B8-0AD1-4150-BF18-5A6347F2E860"
+        "78041808-48A7-491F-9E46-12F5DBC18354",
+        "D3CDAF26-7DA8-4BC6-9E8D-E6D821918695",
+        "6D8D2FD2-53BC-47E5-9407-8847D214BCC5"
       ]
     },
     {
-      "name": "June",
+      "name": "Owen",
       "likes": [
-        "Taylor Swift",
-        "Pride and Prejudice",
-        "Gilmore Girls"
+        "Ted Lasso",
+        "FIFA",
+        "Coldplay"
       ],
       "entityIds": [
-        "3C9EEC3A-F4FE-48A4-B89F-97375F292448",
-        "FB39AE3C-D31A-4677-8E07-3D0A42EB67B2",
-        "4C60FF74-A236-4488-8FB3-2FE43D1C79FB"
+        "DCA1F3CA-7A25-421C-BB4D-A864B6D53848",
+        "85E04261-36B1-4F0F-9055-7F0D510441B5",
+        "B6FA456F-B729-4700-B01F-E82AD3AC8ADA"
       ]
     }
   ]

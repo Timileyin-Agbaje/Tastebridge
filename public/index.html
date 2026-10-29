@@ -24,6 +24,7 @@
       --accent-soft: rgba(194, 65, 12, 0.1);
       --track: rgba(31, 27, 22, 0.08);
       --danger: #b42318;
+      --good: #2b7a3d;
       --shadow: 0 1px 2px rgba(31, 27, 22, 0.04), 0 4px 16px rgba(31, 27, 22, 0.06);
       --radius: 16px;
       --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
@@ -43,6 +44,7 @@
         --accent-soft: rgba(255, 138, 80, 0.14);
         --track: rgba(243, 238, 232, 0.1);
         --danger: #ff8a80;
+        --good: #6fcf86;
         --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.25);
       }
     }
@@ -61,7 +63,7 @@
     }
     button, input { font: inherit; color: inherit; }
     input { font-size: 16px; } /* below 16px, iOS zooms the page on focus */
-    button, [role="button"], label.seg {
+    button, [role="button"], label.seg, a.link-btn {
       touch-action: manipulation;
       user-select: none;
       -webkit-user-select: none;
@@ -95,6 +97,8 @@
     h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; letter-spacing: 0.01em; }
 
     section + section { margin-top: 28px; }
+    .group-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; transition: opacity 200ms ease; }
+    .group-fieldset:disabled { opacity: 0.6; }
 
     /* Member cards */
     .members { display: grid; gap: 12px; }
@@ -153,6 +157,30 @@
     }
     .like-input::placeholder, .name-input::placeholder { color: var(--muted); opacity: 0.8; }
     .like-input[hidden] { display: none; }
+    .chip.has-img { padding-left: 4px; }
+    .chip-img { flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; object-fit: cover; margin-right: 6px; }
+
+    /* Like suggestions: inline under the input, so the phone keyboard never covers them */
+    .suggest {
+      list-style: none; margin: 6px 0 0; padding: 4px;
+      border: 1px solid var(--line); border-radius: 12px;
+      background: var(--surface); box-shadow: var(--shadow);
+    }
+    .suggest[hidden] { display: none; }
+    .option {
+      display: flex; align-items: center; gap: 10px;
+      min-height: 48px; padding: 6px 8px; border-radius: 8px; cursor: pointer;
+      touch-action: manipulation; user-select: none; -webkit-user-select: none;
+    }
+    .option[aria-selected="true"] { background: var(--accent-soft); }
+    .option img, .option-img {
+      flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+      object-fit: cover; background: var(--surface-2);
+    }
+    .option-text { min-width: 0; display: grid; }
+    .option-name { font-weight: 600; font-size: 15px; overflow-wrap: anywhere; }
+    .option-sub { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .suggest-status { padding: 10px 8px; color: var(--muted); font-size: 14px; }
 
     .add-person {
       width: 100%; margin-top: 12px; padding: 12px;
@@ -233,7 +261,7 @@
       background: var(--surface);
       border: 1px solid var(--line); border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 16px;
+      overflow: hidden;
       transition: opacity 280ms var(--ease-out), transform 280ms var(--ease-out);
       transition-delay: calc(var(--i, 0) * 50ms);
       @starting-style { opacity: 0; transform: translateY(8px); }
@@ -251,8 +279,33 @@
       font-family: var(--display); font-weight: 600;
       font-size: 21px; line-height: 1.2; margin: 2px 0 2px; overflow-wrap: anywhere;
     }
-    .address { color: var(--muted); font-size: 14px; margin: 0; overflow-wrap: anywhere; }
-    .why { margin: 12px 0 14px; font-size: 15px; }
+    .pick-photo {
+      display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover;
+      background: var(--surface-2);
+    }
+    .pick-body { padding: 16px; }
+    .meta {
+      display: flex; flex-wrap: wrap; gap: 2px 6px;
+      margin: 2px 0 0; padding: 0; list-style: none;
+      color: var(--muted); font-size: 14px;
+    }
+    .meta li + li::before { content: "·"; margin-right: 6px; }
+    .meta .open { color: var(--good); font-weight: 600; }
+    .meta .closed { color: var(--danger); }
+    .desc {
+      margin: 12px 0 0; font-size: 15px;
+      display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+    }
+    .links { display: flex; gap: 8px; margin-top: 14px; }
+    .link-btn {
+      flex: 1; min-height: 44px; padding: 10px 12px;
+      display: grid; place-items: center;
+      border: 1px solid var(--line); border-radius: 12px;
+      color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none;
+      transition: transform 160ms var(--ease-out), background-color 160ms ease;
+    }
+    .link-btn:active { transform: scale(0.97); }
+    .why { margin: 14px 0; font-size: 15px; }
     .scores { list-style: none; margin: 0; padding: 12px 0 0; border-top: 1px solid var(--line); display: grid; gap: 12px; }
     .score-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
     .score-name { font-weight: 600; font-size: 15px; min-width: 0; overflow-wrap: anywhere; }
@@ -269,7 +322,12 @@
       transition-delay: calc(var(--i, 0) * 50ms + 120ms);
       @starting-style { transform: scaleX(0); }
     }
-    .shared { grid-column: 1 / -1; color: var(--muted); font-size: 13px; }
+    .shared { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+    .common {
+      margin: -4px 0 14px; padding: 8px 12px; border-radius: 10px;
+      background: var(--accent-soft); font-size: 14px; overflow-wrap: anywhere;
+    }
+    .common strong { color: var(--accent); font-weight: 600; }
     .empty {
       padding: 20px; border-radius: var(--radius); border: 1px dashed var(--line);
       color: var(--muted); text-align: center;
@@ -299,18 +357,22 @@
     }
     .proof-panel[hidden] { display: none; }
     .proof-intro { margin: 0 0 14px; color: var(--muted); font-size: 14px; }
-    .strategies { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
-    .strategy { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: baseline; }
-    .strategy-name { font-weight: 600; font-size: 15px; min-width: 0; }
-    .strategy-pct { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 17px; }
-    .strategy-note { grid-column: 1 / -1; color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-    .strategy .bar { margin: 4px 0 2px; }
-    .strategy:not(.ours) .bar-fill { background: var(--muted); }
-    .strategy.ours .strategy-pct { color: var(--accent); }
+    .strategies { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 18px; }
+    .strategy { display: grid; gap: 2px; min-width: 0; }
+    .strategy-name { font-weight: 600; font-size: 15px; }
+    .strategy-stat { font-weight: 700; font-size: 17px; }
+    .strategy.ours .strategy-stat { color: var(--accent); }
+    .strategy-note { color: var(--muted); font-size: 13px; }
+    .strategy-places { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+    .strategy-places li { display: flex; flex-wrap: wrap; gap: 0 8px; min-width: 0; }
+    .place-name { overflow-wrap: anywhere; min-width: 0; }
+    .left-out { color: var(--danger); }
+    .fits-all { color: var(--good); }
     .verdict {
-      margin: 16px 0 0; padding: 12px 14px; border-radius: 12px;
-      background: var(--accent-soft); font-size: 14px; font-weight: 500;
+      margin: 0; padding: 12px 14px; border-radius: 12px;
+      background: var(--accent-soft); font-size: 15px; font-weight: 600;
     }
+    .proof-method { margin: 16px 0 0; color: var(--muted); font-size: 13px; }
     .proof-status { color: var(--muted); font-size: 14px; display: flex; align-items: center; gap: 10px; }
     .proof-status .step-dot {
       margin: 0; border-color: var(--accent); border-right-color: transparent;
@@ -323,13 +385,15 @@
       .seg:hover input:not(:checked) + span { color: var(--ink); }
       .btn-primary:hover:not(:disabled) { filter: brightness(1.06); }
       .btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+      .link-btn:hover { background: var(--surface-2); }
+      .option:hover:not([aria-selected="true"]) { background: var(--surface-2); }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .pick { transform: none; transition: opacity 200ms ease; @starting-style { transform: none; } }
       .bar-fill { transition: none; }
       .step[data-state="active"] .step-dot { animation-duration: 2s; }
-      .btn:active, .icon-btn:active, .add-person:active, .seg:active span, .proof-toggle:active { transform: none; }
+      .btn:active, .icon-btn:active, .add-person:active, .seg:active span, .proof-toggle:active, .link-btn:active { transform: none; }
       .proof-panel { transition: opacity 200ms ease; @starting-style { transform: none; } }
       .proof-status .step-dot { animation-duration: 2s; }
     }
@@ -347,6 +411,7 @@
     </header>
 
     <form id="group-form" novalidate>
+      <fieldset class="group-fieldset" id="group-fieldset">
       <section aria-labelledby="who-heading">
         <h2 id="who-heading">Who's coming?</h2>
         <div class="members" id="members"></div>
@@ -361,6 +426,7 @@
           <label class="seg"><input type="radio" name="category" value="things_to_do" /><span>Things to do</span></label>
         </div>
       </section>
+      </fieldset>
 
       <div class="actions">
         <button type="submit" class="btn btn-primary" id="find">Find our spot</button>
@@ -385,7 +451,7 @@
           <svg class="chevron" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
         </button>
         <div class="proof-panel" id="proof-panel" hidden>
-          <p class="proof-intro">Same people, same scoring. Only the way the places are chosen changes. Each number is the least-happy person’s average match across that list’s 5 places.</p>
+          <p class="proof-intro">Same people, same Qloo scores. Only the way the places are chosen changes.</p>
           <div id="proof-body" aria-live="polite"></div>
         </div>
       </div>
@@ -398,15 +464,15 @@
     const MAX_MEMBERS = 5;
     const MAX_LIKES = 4;
     const MAX_SHARED_TAGS = 3;
-    // Qloo affinities cluster between ~0.75 and 0.95, so a 0–1 bar would make everyone look the same.
-    const BAR_FLOOR = 0.6;
 
+    // Three clearly different worlds. Measured: going by Sam's taste alone, or by popularity, leaves
+    // someone out at every restaurant; TasteBridge's shortlist leaves nobody out.
     const DEMO_GROUP = {
       category: 'restaurants',
       members: [
-        { name: 'Maya', likes: ['Radiohead', 'The Grand Budapest Hotel', 'Patagonia'] },
-        { name: 'Dre', likes: ['Drake', 'Fast & Furious', 'Nike'] },
-        { name: 'June', likes: ['Taylor Swift', 'Pride and Prejudice', 'Gilmore Girls'] },
+        { name: 'Sam', likes: ['Anthony Bourdain', 'Chef\'s Table', 'The Bear'] },
+        { name: 'Nia', likes: ['SZA', 'Insecure', 'Telfar'] },
+        { name: 'Owen', likes: ['Ted Lasso', 'FIFA', 'Coldplay'] },
       ],
     };
 
@@ -418,6 +484,7 @@
     };
 
     const membersEl = document.getElementById('members');
+    const groupFieldset = document.getElementById('group-fieldset');
     const addPersonBtn = document.getElementById('add-person');
     const form = document.getElementById('group-form');
     const findBtn = document.getElementById('find');
@@ -504,34 +571,46 @@
       });
 
       const likesEl = el('div', { className: 'likes' });
+      const listId = `suggest-${nextSuggestId++}`;
       const likeInput = el('input', {
         className: 'like-input', placeholder: 'Add a like: artist, film, book, brand…',
         autocomplete: 'off', autocapitalize: 'words', spellcheck: false,
-        enterKeyHint: 'done', maxLength: 100,
+        enterKeyHint: 'done', maxLength: 100, role: 'combobox',
         'aria-label': `Add something ${displayName(member, index)} likes`,
+        'aria-autocomplete': 'list', 'aria-expanded': 'false', 'aria-controls': listId,
       });
       // Set as an attribute: some browsers expose a boolean `autocorrect` property where 'off' would read as true.
       likeInput.setAttribute('autocorrect', 'off');
+      const listEl = el('ul', { className: 'suggest', id: listId, role: 'listbox', hidden: true });
+
+      const commitLike = (like) => {
+        addLike(member, like);
+        likeInput.value = '';
+        suggestions.close();
+        renderLikes(member, likesEl, likeInput);
+      };
+      const suggestions = attachSuggestions(likeInput, listEl, (entity) => {
+        commitLike({ text: entity.name, status: 'found', entity });
+        likeInput.focus();
+      });
+
       // Inside a form, Enter would submit the whole group; "next" should move to this person's likes.
       nameInput.addEventListener('keydown', (event) => {
-        if (event.key !== 'Enter') return;
+        if (event.key !== 'Enter' || isComposing(event)) return;
         event.preventDefault();
         if (!likeInput.hidden) likeInput.focus();
       });
       likeInput.addEventListener('keydown', (event) => {
+        if (isComposing(event) || suggestions.handleKey(event)) return;
         if (event.key !== 'Enter' && event.key !== ',') return;
         event.preventDefault();
-        addLike(member, likeInput.value);
-        likeInput.value = '';
-        renderLikes(member, likesEl, likeInput);
+        commitLike({ text: likeInput.value, status: 'new', entity: null });
         likeInput.focus();
       });
-      // Typing a like and then tapping away shouldn't lose it.
+      // Typing a like and then tapping away shouldn't lose it; it's matched when the group is submitted.
       likeInput.addEventListener('blur', () => {
-        if (!likeInput.value.trim()) return;
-        addLike(member, likeInput.value);
-        likeInput.value = '';
-        renderLikes(member, likesEl, likeInput);
+        suggestions.close();
+        if (likeInput.value.trim()) commitLike({ text: likeInput.value, status: 'new', entity: null });
       });
       renderLikes(member, likesEl, likeInput);
 
@@ -539,14 +618,150 @@
         el('div', { className: 'member-head' }, [avatar, nameInput, removeBtn]),
         likesEl,
         likeInput,
+        listEl,
       ]);
     }
 
-    function addLike(member, text) {
-      const clean = text.replace(/,/g, ' ').trim();
-      if (!clean || member.likes.length >= MAX_LIKES) return;
-      if (member.likes.some((like) => like.text.toLowerCase() === clean.toLowerCase())) return;
-      member.likes.push({ text: clean, status: 'new', entity: null });
+    // ---------- Like suggestions (combobox) ----------
+
+    const SUGGEST_DELAY_MS = 250;
+    const SUGGEST_MIN_CHARS = 2;
+    const suggestCache = new Map(); // query → entities, so backspacing doesn't refetch
+    let nextSuggestId = 0;
+
+    // Wires typeahead onto a like input. Returns { handleKey, close }; handleKey returns true
+    // when it used the key (arrows, Escape, or Enter on a highlighted suggestion).
+    function attachSuggestions(input, listEl, onPick) {
+      let timer = null;
+      let options = [];
+      let active = -1;
+      let requestId = 0; // bumped by every load and close, so a late answer can't reopen the list
+
+      function close() {
+        clearTimeout(timer);
+        requestId += 1;
+        options = [];
+        active = -1;
+        listEl.hidden = true;
+        listEl.replaceChildren();
+        input.setAttribute('aria-expanded', 'false');
+        input.removeAttribute('aria-activedescendant');
+      }
+
+      function showStatus(text) {
+        options = [];
+        active = -1;
+        listEl.replaceChildren(el('li', { className: 'suggest-status', role: 'presentation' }, text));
+        listEl.hidden = false;
+        input.setAttribute('aria-expanded', 'false');
+      }
+
+      function showOptions(entities) {
+        if (entities.length === 0) return showStatus('No matches. Press Enter to add it anyway.');
+        options = entities;
+        active = -1;
+        listEl.replaceChildren(...entities.map((entity, i) => {
+          const option = el('li', { className: 'option', id: `${listEl.id}-${i}`, role: 'option', 'aria-selected': 'false' }, [
+            entity.image ? el('img', { src: entity.image, alt: '' }) : el('span', { className: 'option-img' }),
+            el('span', { className: 'option-text' }, [
+              el('span', { className: 'option-name' }, entity.name),
+              el('span', { className: 'option-sub' }, subtitleFor(entity)),
+            ]),
+          ]);
+          option.addEventListener('pointerdown', (event) => event.preventDefault()); // keep focus in the input
+          option.addEventListener('click', () => onPick(entity));
+          return option;
+        }));
+        listEl.hidden = false;
+        input.setAttribute('aria-expanded', 'true');
+      }
+
+      function highlight(index) {
+        active = index;
+        [...listEl.children].forEach((option, i) => option.setAttribute('aria-selected', String(i === index)));
+        if (index >= 0) {
+          input.setAttribute('aria-activedescendant', listEl.children[index].id);
+          listEl.children[index].scrollIntoView({ block: 'nearest' });
+        } else {
+          input.removeAttribute('aria-activedescendant');
+        }
+      }
+
+      async function load(query) {
+        if (suggestCache.has(query)) return showOptions(suggestCache.get(query));
+        const id = ++requestId;
+        // Only the newest request, for the text still in the box, may update the list.
+        const current = () => id === requestId && input.value.trim() === query;
+        showStatus('Searching…');
+        try {
+          const { suggestions } = await getJson(`/api/suggest?q=${encodeURIComponent(query)}`);
+          suggestCache.set(query, suggestions);
+          if (current()) showOptions(suggestions);
+        } catch {
+          if (current()) showStatus('Suggestions are unavailable. Press Enter to add it anyway.');
+        }
+      }
+
+      input.addEventListener('input', () => {
+        clearTimeout(timer);
+        // The visible suggestions are for older text: Enter must not pick one of them by keyboard.
+        options = [];
+        highlight(-1);
+        const query = input.value.trim();
+        if (query.length < SUGGEST_MIN_CHARS) return close();
+        timer = setTimeout(() => load(query), SUGGEST_DELAY_MS);
+      });
+
+      function handleKey(event) {
+        if (event.key === 'Escape' && !listEl.hidden) {
+          event.preventDefault();
+          close();
+          return true;
+        }
+        if (options.length === 0) return false;
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          const step = event.key === 'ArrowDown' ? 1 : -1;
+          highlight((active + step + options.length) % options.length);
+          return true;
+        }
+        if (event.key === 'Enter' && active >= 0) {
+          event.preventDefault();
+          onPick(options[active]);
+          return true;
+        }
+        return false;
+      }
+
+      return { handleKey, close };
+    }
+
+    // "film · 2021", "book · 1965, Frank Herbert", "TV show · 2005–2013", "person · Canadian rapper…"
+    function subtitleFor(entity) {
+      const type = TYPE_LABELS[entity.type] ?? '';
+      let detail = (entity.disambiguation ?? '').trim();
+      if (detail === entity.name || /^\d{4}-\d{2}-\d{2}$/.test(detail)) detail = ''; // a name or birth date doesn't help
+      detail = detail.replace(/^(\d{4}),(\d{4})$/, (_, from, to) => (from === to ? from : `${from}–${to}`));
+      if (!detail && entity.description) detail = entity.description;
+      return [type, detail].filter(Boolean).join(' · ');
+    }
+
+    // Enter that confirms a Chinese/Japanese IME candidate isn't "done typing".
+    // keyCode 229 covers browsers that don't set isComposing on that keydown.
+    function isComposing(event) {
+      return event.isComposing || event.keyCode === 229;
+    }
+
+    // like: { text, status: 'new' | 'found', entity } — 'found' when picked from suggestions.
+    function addLike(member, like) {
+      const text = like.text.replace(/,/g, ' ').trim();
+      if (!text || member.likes.length >= MAX_LIKES) return;
+      // Two picked entities are the same like only if their IDs match: the film and the book "Dune" are both welcome.
+      const duplicate = member.likes.some((existing) => (like.entity && existing.entity
+        ? existing.entity.id === like.entity.id
+        : existing.text.toLowerCase() === text.toLowerCase()));
+      if (duplicate) return;
+      member.likes.push({ ...like, text });
     }
 
     function renderLikes(member, likesEl, likeInput) {
@@ -560,8 +775,9 @@
         if (like.status === 'missing') note = el('small', {}, 'not found');
         if (like.status === 'found') note = el('small', {}, TYPE_LABELS[like.entity.type] ?? '');
         const label = like.status === 'found' ? like.entity.name : like.text;
-        return el('span', { className: `chip ${like.status}`, title: like.text }, [
-          el('span', { className: 'chip-text' }, label), note, removeBtn,
+        const thumb = like.entity?.image ? el('img', { className: 'chip-img', src: like.entity.image, alt: '' }) : null;
+        return el('span', { className: `chip ${like.status}${thumb ? ' has-img' : ''}`, title: like.text }, [
+          thumb, el('span', { className: 'chip-text' }, label), note, removeBtn,
         ]);
       }));
       likeInput.hidden = member.likes.length >= MAX_LIKES;
@@ -585,6 +801,7 @@
 
     function setBusy(isBusy) {
       busy = isBusy;
+      groupFieldset.disabled = isBusy; // no edits to the group while its search is running
       findBtn.disabled = isBusy;
       demoBtn.disabled = isBusy;
       findBtn.textContent = isBusy ? 'Finding your spot…' : 'Find our spot';
@@ -607,13 +824,17 @@
       let done = total - pending.length;
       setStep('resolve', 'active', `${done} of ${total}`);
 
-      await Promise.all(pending.map(async (like) => {
+      // allSettled, not all: on a failure we still wait for the rest, so no late response
+      // can touch the progress after this run has ended.
+      const results = await Promise.allSettled(pending.map(async (like) => {
         const { entity } = await getJson(`/api/resolve?q=${encodeURIComponent(like.text)}`);
         like.entity = entity;
         like.status = entity ? 'found' : 'missing';
         done += 1;
         setStep('resolve', 'active', `${done} of ${total}`);
       }));
+      const failure = results.find((result) => result.status === 'rejected');
+      if (failure) throw failure.reason;
 
       const found = members.flatMap((m) => m.likes).filter((like) => like.status === 'found').length;
       setStep('resolve', 'done', `${found} of ${total} recognised`);
@@ -647,10 +868,12 @@
 
         setStep('combine', 'active');
         const category = form.elements.category.value;
-        const group = members.map((m, i) => ({
+        // A snapshot: results render from what was sent, not from the live (editable) members.
+        const snapshot = members.map((m, i) => ({
           name: displayName(m, i),
-          entityIds: m.likes.filter((like) => like.status === 'found').map((like) => like.entity.id),
+          likedEntities: m.likes.filter((like) => like.status === 'found').map((like) => like.entity),
         }));
+        const group = snapshot.map((m) => ({ name: m.name, entityIds: m.likedEntities.map((e) => e.id) }));
         const { candidateCount, picks } = await getJson('/api/recommend', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -664,7 +887,7 @@
           setStep('combine', 'done', `${candidateCount} ${plural(candidateCount, 'place', 'places')} shortlisted`);
           setStep('score', 'done', `${candidateCount * group.length} scores checked`);
         }
-        lastRun = { category, members: group, picks };
+        lastRun = { category, members: group, likedEntities: snapshot.map((m) => m.likedEntities), picks };
         renderResults(picks);
       } catch (err) {
         for (const step of progressEl.querySelectorAll('[data-state="active"]')) step.dataset.state = 'pending';
@@ -676,68 +899,220 @@
 
     // ---------- Results ----------
 
-    function sharedTagNames(member, pick) {
-      const likeTagNames = new Set(
-        member.likes
-          .filter((like) => like.status === 'found')
-          .flatMap((like) => like.entity.tags.map((tag) => tag.name.trim().toLowerCase())),
-      );
-      const names = pick.tags
-        .map((tag) => tag.name.trim())
-        .filter((name) => likeTagNames.has(name.toLowerCase()));
-      return [...new Set(names)].slice(0, MAX_SHARED_TAGS);
+    // Only a place's vibe says something about taste. Its offerings and amenities ("Food", "Elevator")
+    // matched like keywords ("Wine", "Hotel") in the demo data and explained nothing.
+    const PLACE_VIBE_TAG_PREFIXES = [
+      'urn:tag:ambience:', 'urn:tag:decor:', 'urn:tag:setting:', 'urn:tag:style:', 'urn:tag:culinary_style:',
+    ];
+    const LIKE_KEYWORD_TAG_PREFIX = 'urn:tag:keyword:';
+
+    // lowercased name → display name, for the place's vibe tags.
+    function placeVibes(pick) {
+      return new Map(pick.tags
+        .filter((tag) => PLACE_VIBE_TAG_PREFIXES.some((prefix) => tag.id?.startsWith(prefix)))
+        .map((tag) => [tag.name.trim().toLowerCase(), tag.name.trim()]));
     }
 
-    function percent(affinity) {
-      return `${Math.round(affinity * 100)}%`;
+    // For each of one person's likes, the place vibes it shares: [{ like, vibes }], strongest first.
+    function likeMatches(likedEntities, vibes) {
+      return likedEntities
+        .map((entity) => {
+          const names = entity.tags
+            .filter((tag) => !tag.id?.startsWith(LIKE_KEYWORD_TAG_PREFIX))
+            .map((tag) => tag.name.trim().toLowerCase())
+            .filter((name) => vibes.has(name));
+          return { like: entity.name, vibes: [...new Set(names)] };
+        })
+        .filter((match) => match.vibes.length > 0)
+        .sort((a, b) => b.vibes.length - a.vibes.length);
     }
 
-    function barValue(affinity) {
-      return Math.min(1, Math.max(0.04, (affinity - BAR_FLOOR) / (1 - BAR_FLOOR)));
+    // "Because of Radiohead: atmospheric, eclectic", or null when nothing real connects them.
+    function reasonFor(matches) {
+      const [best] = matches;
+      if (!best) return null;
+      return `Because of ${best.like}: ${best.vibes.slice(0, MAX_SHARED_TAGS).join(', ')}`;
     }
 
-    // Under this spread nobody is meaningfully worse off, so there's no "lowest" to call out.
-    const EVEN_SPREAD = 0.03;
+    // Vibes that match at least one like for every person: the bridge between their tastes.
+    function commonGround(memberMatches, vibes) {
+      const perMember = memberMatches.map((matches) => new Set(matches.flatMap((m) => m.vibes)));
+      return [...perMember[0] ?? []]
+        .filter((name) => perMember.every((set) => set.has(name)))
+        .map((name) => vibes.get(name))
+        .slice(0, MAX_SHARED_TAGS);
+    }
+
+    // "#4 of 20": where this place falls in that person's own ranking of the places considered.
+    function rankLabel(score) {
+      return `#${score.rank} of ${score.of}`;
+    }
+
+    // Bar length follows the person's own ranking (their favourite fills it), with a sliver for their last.
+    function barValue(fit) {
+      return Math.max(0.04, fit);
+    }
+
+    // Everyone within this many places of each other in their own rankings counts as an even match.
+    const EVEN_RANK_SPREAD = 3;
 
     function isEvenMatch(pick) {
-      const affinities = pick.scores.map((s) => s.affinity);
-      return Math.max(...affinities) - Math.min(...affinities) < EVEN_SPREAD;
+      const ranks = pick.scores.map((s) => s.rank);
+      return Math.max(...ranks) - Math.min(...ranks) <= EVEN_RANK_SPREAD;
     }
 
     function whyLine(pick) {
-      if (isEvenMatch(pick)) return `An even match: everyone lands within a few points of each other.`;
-      const lowest = pick.scores.reduce((low, s) => (s.affinity < low.affinity ? s : low));
-      return `Even ${lowest.member}, the hardest to please here, comes in at ${percent(lowest.affinity)}.`;
+      if (isEvenMatch(pick)) return 'An even match: everyone ranks it within a few places of each other.';
+      const lowest = pick.scores.reduce((low, s) => (s.fit < low.fit ? s : low));
+      return `Even ${lowest.member}, the hardest to please here, ranks it ${rankLabel(lowest)}.`;
     }
 
     function renderPick(pick, index) {
-      const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.affinity));
+      const lowest = isEvenMatch(pick) ? null : Math.min(...pick.scores.map((s) => s.fit));
+      const vibes = placeVibes(pick);
+      const memberMatches = lastRun.likedEntities.map((likedEntities) => likeMatches(likedEntities, vibes));
+      const common = commonGround(memberMatches, vibes);
       const rows = pick.scores.map((score, i) => {
-        const shared = sharedTagNames(members[i], pick);
+        const reason = reasonFor(memberMatches[i]);
         return el('li', { className: 'score-row' }, [
           el('span', { className: 'score-name' }, [
             score.member,
-            score.affinity === lowest ? el('em', {}, 'lowest') : null,
+            score.fit === lowest ? el('em', {}, 'lowest') : null,
           ]),
-          el('span', { className: 'score-pct' }, percent(score.affinity)),
-          el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.affinity)}` })),
-          el('span', { className: 'shared' }, shared.length
-            ? `Shares: ${shared.join(', ')}`
-            : 'No direct tag overlap; matched through Qloo’s wider taste graph'),
+          el('span', { className: 'score-pct' }, rankLabel(score)),
+          el('div', { className: 'bar', role: 'presentation' }, el('div', { className: 'bar-fill', style: `--v: ${barValue(score.fit)}` })),
+          reason ? el('span', { className: 'shared' }, reason) : null,
         ]);
       });
 
       return el('li', { className: 'pick', style: `--i: ${index}` }, [
-        el('div', { className: 'pick-head' }, [
-          el('span', { className: 'rank', 'aria-label': `Pick ${index + 1}` }, String(index + 1)),
-          el('div', { className: 'pick-title' }, [
-            el('h3', {}, pick.name),
-            pick.address ? el('p', { className: 'address' }, pick.address) : null,
+        renderPhoto(pick),
+        el('div', { className: 'pick-body' }, [
+          el('div', { className: 'pick-head' }, [
+            el('span', { className: 'rank', 'aria-label': `Pick ${index + 1}` }, String(index + 1)),
+            el('div', { className: 'pick-title' }, [el('h3', {}, pick.name), renderMeta(pick)]),
           ]),
+          pick.description ? el('p', { className: 'desc' }, pick.description) : null,
+          renderLinks(pick),
+          el('p', { className: 'why' }, whyLine(pick)),
+          common.length ? el('p', { className: 'common' }, [el('strong', {}, 'Common ground: '), common.join(', ')]) : null,
+          el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
         ]),
-        el('p', { className: 'why' }, whyLine(pick)),
-        el('ul', { className: 'scores', 'aria-label': `How each person scores ${pick.name}` }, rows),
       ]);
+    }
+
+    function renderPhoto(pick) {
+      if (!pick.image) return null;
+      const img = el('img', { className: 'pick-photo', src: pick.image, alt: '', loading: 'lazy', decoding: 'async' });
+      img.addEventListener('error', () => img.remove()); // a broken photo shouldn't leave a grey box
+      return img;
+    }
+
+    function renderMeta(pick) {
+      const items = [
+        pick.neighborhood ?? pick.address,
+        pick.rating ? `★ ${pick.rating.toFixed(1)}` : null,
+        pick.priceLevel ? '$'.repeat(pick.priceLevel) : null,
+        renderOpenStatus(pick.hours),
+      ].filter(Boolean);
+      return el('ul', { className: 'meta' }, items.map((item) => el('li', {}, item)));
+    }
+
+    // Remembers each badge's hours so it can be refreshed without another Qloo call.
+    const openStatusHours = new WeakMap();
+
+    function renderOpenStatus(hours) {
+      const status = openStatus(hours);
+      if (!status) return null;
+      const badge = el('span', { className: `open-status ${status.state}` }, status.text);
+      openStatusHours.set(badge, hours);
+      return badge;
+    }
+
+    // A page left open past 5 PM shouldn't still say "Opens 5 PM".
+    function refreshOpenStatuses() {
+      for (const badge of document.querySelectorAll('.open-status')) {
+        const status = openStatus(openStatusHours.get(badge));
+        if (!status) continue;
+        badge.className = `open-status ${status.state}`;
+        badge.textContent = status.text;
+      }
+    }
+
+    function renderLinks(pick) {
+      const mapsQuery = encodeURIComponent([pick.name, pick.address].filter(Boolean).join(', '));
+      const website = safeUrl(pick.website);
+      return el('div', { className: 'links' }, [
+        el('a', {
+          className: 'link-btn', href: `https://www.google.com/maps/search/?api=1&query=${mapsQuery}`,
+          target: '_blank', rel: 'noopener', 'aria-label': `Directions to ${pick.name}`,
+        }, 'Directions'),
+        website
+          ? el('a', { className: 'link-btn', href: website, target: '_blank', rel: 'noopener', 'aria-label': `${pick.name} website` }, 'Website')
+          : null,
+      ]);
+    }
+
+    // Qloo websites sometimes come without a scheme; anything that isn't http(s) is dropped.
+    function safeUrl(value) {
+      if (!value) return null;
+      for (const candidate of [value, `https://${value}`]) {
+        try {
+          const url = new URL(candidate);
+          if (url.protocol === 'https:' || url.protocol === 'http:') return url.href;
+        } catch { /* try the next form */ }
+      }
+      return null;
+    }
+
+    // ---------- Opening hours (Qloo gives local New York times) ----------
+
+    const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+
+    function newYorkNow() {
+      const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', weekday: 'long', hour: 'numeric', minute: 'numeric', hourCycle: 'h23',
+      }).formatToParts(new Date()).map((part) => [part.type, part.value]));
+      return { day: WEEKDAYS.indexOf(parts.weekday.toLowerCase()), minutes: Number(parts.hour) * 60 + Number(parts.minute) };
+    }
+
+    function toMinutes(time) {
+      const [hours, minutes] = time.replace('T', '').split(':').map(Number);
+      return hours * 60 + minutes;
+    }
+
+    function formatTime(minutes) {
+      const hour24 = Math.floor(minutes / 60) % 24;
+      const minute = minutes % 60;
+      const hour12 = hour24 % 12 || 12;
+      return `${hour12}${minute ? `:${String(minute).padStart(2, '0')}` : ''} ${hour24 < 12 ? 'AM' : 'PM'}`;
+    }
+
+    // Slots for one day as [opens, closes] in minutes; a close at or before the open runs past midnight.
+    function slotsFor(hours, day) {
+      return (hours[WEEKDAYS[day]] ?? [])
+        .filter((slot) => !slot.closed && slot.opens && slot.closes)
+        .map((slot) => [toMinutes(slot.opens), toMinutes(slot.closes)]);
+    }
+
+    // { state: 'open' | 'later' | 'closed', text } for right now in New York, or null when Qloo has no usable hours.
+    function openStatus(hours) {
+      if (!hours) return null;
+      const hasAnyTimes = Object.values(hours).some((slots) => slots.some((slot) => slot.opens));
+      if (!hasAnyTimes) return null; // "closed every day" with no times is missing data, not a closed venue
+
+      const { day, minutes } = newYorkNow();
+      for (const [opens, closes] of slotsFor(hours, (day + 6) % 7)) {
+        if (closes <= opens && minutes < closes) return { state: 'open', text: `Open until ${formatTime(closes)}` };
+      }
+      const today = slotsFor(hours, day);
+      for (const [opens, closes] of today) {
+        const overnight = closes <= opens;
+        if (minutes >= opens && (overnight || minutes < closes)) return { state: 'open', text: `Open until ${formatTime(closes)}` };
+      }
+      const later = today.filter(([opens]) => opens > minutes).sort((a, b) => a[0] - b[0])[0];
+      if (later) return { state: 'later', text: `Opens ${formatTime(later[0])}` };
+      return { state: 'closed', text: today.length ? 'Closed for today' : 'Closed today' };
     }
 
     function renderResults(picks) {
@@ -764,55 +1139,57 @@
       proofPanel.hidden = !open;
     }
 
-    // The least-happy person's average match across a list: the number TasteBridge optimises for.
-    function worstOff(picks) {
-      if (picks.length === 0) return null;
-      const averages = picks[0].scores.map((score, i) => ({
-        member: score.member,
-        affinity: picks.reduce((sum, pick) => sum + pick.scores[i].affinity, 0) / picks.length,
-      }));
-      return averages.reduce((low, a) => (a.affinity < low.affinity ? a : low));
+    const nameList = new Intl.ListFormat('en', { type: 'conjunction' }); // "Sam, Nia, and Owen"
+
+    function leftOutCount(list) {
+      return list.filter((place) => place.leftOut.length > 0).length;
     }
 
-    function renderStrategy({ name, note, picks, ours }) {
-      const worst = worstOff(picks);
+    // "Leaves Nia out at 2" / "Leaves nobody out"
+    function leftOutSummary(list) {
+      const count = leftOutCount(list);
+      if (list.length === 0) return 'Qloo found no places for this list';
+      if (count === 0) return 'Leaves nobody out';
+      return `Leaves someone out at ${count} of ${list.length} ${plural(list.length, 'place', 'places')}`;
+    }
+
+    function renderStrategy({ name, note, list, ours }) {
       return el('li', { className: `strategy${ours ? ' ours' : ''}` }, [
         el('span', { className: 'strategy-name' }, name),
-        el('span', { className: 'strategy-pct' }, worst ? percent(worst.affinity) : '—'),
-        el('div', { className: 'bar', role: 'presentation' },
-          el('div', { className: 'bar-fill', style: `--v: ${worst ? barValue(worst.affinity) : 0}` })),
-        el('span', { className: 'strategy-note' }, worst
-          ? `${note} Least happy: ${worst.member}.`
-          : `${note} Qloo found no places for this list.`),
+        el('span', { className: 'strategy-stat' }, leftOutSummary(list)),
+        el('span', { className: 'strategy-note' }, note),
+        el('ul', { className: 'strategy-places' }, list.map((place) => el('li', {}, [
+          el('span', { className: 'place-name' }, place.name),
+          place.leftOut.length
+            ? el('span', { className: 'left-out' }, `leaves out ${nameList.format(place.leftOut)}`)
+            : el('span', { className: 'fits-all' }, 'works for everyone'),
+        ]))),
       ]);
     }
 
-    function pointsDifference(ours, theirs) {
-      // From the rounded percentages on screen, so 83% vs 81% reads as 2 points, never 1.
-      const points = Math.round(ours.affinity * 100) - Math.round(theirs.affinity * 100);
-      if (points === 0) return 'the same';
-      return points > 0 ? `${points} ${plural(points, 'point', 'points')} better` : `${-points} ${plural(-points, 'point', 'points')} worse`;
+    function verdictText() {
+      const theirs = [
+        [`${lastRun.members[0].name}’s taste alone`, comparison.organizer],
+        ['going by popularity', comparison.popular],
+      ].filter(([, list]) => list.length > 0);
+      const ours = leftOutCount(comparison.tasteBridge);
+      const others = theirs.map(([label, list]) => `${label} leaves someone out at ${leftOutCount(list)} of ${list.length}`);
+      const lead = ours === 0 ? 'TasteBridge’s shortlist leaves nobody out' : `TasteBridge’s shortlist leaves someone out at ${ours}`;
+      return others.length ? `${lead}; ${others.join(', and ')}.` : `${lead}.`;
     }
 
     function renderComparison() {
       const organizer = lastRun.members[0].name;
       const strategies = [
-        { name: 'TasteBridge', note: 'Everyone’s likes, ranked so nobody is left out.', picks: lastRun.picks, ours: true },
-        { name: `${organizer}’s taste only`, note: `What the organizer’s likes alone would pick: ${comparison.organizer.map((p) => p.name).join(', ')}.`, picks: comparison.organizer },
-        { name: 'Most popular', note: `No taste at all, just the city’s top spots: ${comparison.popular.map((p) => p.name).join(', ')}.`, picks: comparison.popular },
+        { name: 'TasteBridge', note: 'Everyone’s likes, ranked so the least-happy person is as happy as possible.', list: comparison.tasteBridge, ours: true },
+        { name: `${organizer}’s taste only`, note: 'What the organizer’s likes alone would pick.', list: comparison.organizer },
+        { name: 'Most popular', note: 'No taste at all: the city’s top spots.', list: comparison.popular },
       ];
-
-      const ours = worstOff(lastRun.picks);
-      const verdicts = [
-        ['organizer only', worstOff(comparison.organizer)],
-        ['most popular', worstOff(comparison.popular)],
-      ].filter(([, theirs]) => theirs).map(([label, theirs]) => `${pointsDifference(ours, theirs)} than ${label}`);
-
       proofBody.replaceChildren(
+        el('p', { className: 'verdict' }, verdictText()),
         el('ol', { className: 'strategies' }, strategies.map(renderStrategy)),
-        verdicts.length
-          ? el('p', { className: 'verdict' }, `For the least-happy person, TasteBridge is ${verdicts.join(' and ')}.`)
-          : null,
+        el('p', { className: 'proof-method' },
+          `A place leaves someone out when it ranks in the bottom third, for that person, of all ${comparison.poolSize} places the three approaches would show.`),
       );
     }
 
@@ -826,7 +1203,7 @@
         const result = await getJson('/api/compare', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category: run.category, members: run.members }),
+          body: JSON.stringify({ category: run.category, members: run.members, pickIds: run.picks.map((pick) => pick.id) }),
         });
         if (run !== lastRun) return; // a new search started while this was loading
         comparison = result;
@@ -851,6 +1228,12 @@
     }
 
     // ---------- Wiring ----------
+
+    const OPEN_STATUS_REFRESH_MS = 60 * 1000;
+    setInterval(refreshOpenStatuses, OPEN_STATUS_REFRESH_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refreshOpenStatuses();
+    });
 
     addPersonBtn.addEventListener('click', () => {
       if (members.length >= MAX_MEMBERS) return;
